@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# kb-update — Update KeyBrain framework files from GitHub
+# Never touches: raw/, wiki/, decisions/, inbox/, conversations/, VERSION
+
+set -euo pipefail
+
+VAULT="${KB_VAULT:-$HOME/Knowledge}"
+LOCAL_VERSION=$(cat "$VAULT/VERSION" 2>/dev/null || echo "0.0.0")
+REPO="your-org/keybrain"  # replace with actual GitHub org/repo
+
+echo "KeyBrain Update"
+echo "  Local version: $LOCAL_VERSION"
+
+# Check latest tag from GitHub
+LATEST=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
+
+if [ -z "$LATEST" ]; then
+  echo "Error: could not check for updates. Check your internet connection."
+  exit 1
+fi
+
+echo "  Latest version: $LATEST"
+
+if [ "$LOCAL_VERSION" = "$LATEST" ]; then
+  echo "Already up to date."
+  exit 0
+fi
+
+echo ""
+echo "Update available: $LOCAL_VERSION → $LATEST"
+echo "This will update: bin/, setup/, templates/, CLAUDE.md, README.md, INSTALL-PROMPT.md"
+echo "This will NOT touch: raw/, wiki/, decisions/, inbox/, conversations/"
+echo ""
+read -r -p "Update now? [y/N]: " CONFIRM
+
+if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+  echo "Update cancelled."
+  exit 0
+fi
+
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+
+# Download and extract
+curl -sL "https://github.com/$REPO/archive/refs/tags/$LATEST.tar.gz" | tar xz -C "$TMPDIR"
+SRC="$TMPDIR/keybrain-${LATEST#v}"
+
+# Update framework files only
+for item in bin setup templates CLAUDE.md README.md INSTALL-PROMPT.md CONTRIBUTING.md CHANGELOG.md requirements.txt; do
+  if [ -e "$SRC/$item" ]; then
+    cp -r "$SRC/$item" "$VAULT/$item"
+  fi
+done
+
+# Update VERSION
+echo "${LATEST#v}" > "$VAULT/VERSION"
+
+echo "Updated to $LATEST. Restart your terminal for PATH changes to take effect."

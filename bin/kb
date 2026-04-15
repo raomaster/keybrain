@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# kb — KeyBrain: Personal Knowledge Base CLI
+# Usage:
+#   kb "text or URL"       → saves to inbox as .md with timestamp
+#   kb add <file>          → copies file to inbox/
+#   kb process             → force inbox processing now
+#   kb status              → shows pending inbox count + last commit
+#   kb open                → opens vault in file manager
+#
+# Configuration:
+#   KB_VAULT env var overrides default path ($HOME/Knowledge)
+
+set -euo pipefail
+
+VAULT="${KB_VAULT:-$HOME/Knowledge}"
+INBOX="$VAULT/inbox"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+case "${1:-}" in
+  add)
+    if [ -z "${2:-}" ]; then
+      echo "Usage: kb add <file>"
+      exit 1
+    fi
+    if [ ! -f "$2" ]; then
+      echo "Error: file not found: $2"
+      exit 1
+    fi
+    cp "$2" "$INBOX/$(basename "$2")"
+    echo "Added: $(basename "$2") → inbox/"
+    ;;
+
+  process)
+    echo "Processing inbox..."
+    "$VAULT/bin/process-inbox.sh"
+    ;;
+
+  status)
+    count=$(find "$INBOX" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d ' ')
+    echo "Inbox: $count pending file(s)"
+    echo "Last commit: $(cd "$VAULT" && git log -1 --format='%ar — %s' 2>/dev/null || echo 'no commits')"
+    ;;
+
+  open)
+    if command -v xdg-open &>/dev/null; then
+      xdg-open "$VAULT"
+    elif command -v open &>/dev/null; then
+      open "$VAULT"
+    else
+      echo "Vault path: $VAULT"
+    fi
+    ;;
+
+  update)
+    "$VAULT/bin/kb-update"
+    ;;
+
+  *)
+    if [ -z "${1:-}" ]; then
+      echo "Usage:"
+      echo "  kb \"text or URL\"   → save to inbox"
+      echo "  kb add <file>      → copy file to inbox"
+      echo "  kb process         → process inbox now"
+      echo "  kb status          → vault status"
+      echo "  kb update          → update KeyBrain framework"
+      echo "  kb open            → open vault in file manager"
+      exit 1
+    fi
+    CONTENT="$*"
+    mkdir -p "$INBOX"
+    FILE="$INBOX/$TIMESTAMP.md"
+    echo "$CONTENT" > "$FILE"
+    echo "Saved to inbox: $TIMESTAMP.md"
+    ;;
+esac
