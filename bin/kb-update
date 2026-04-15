@@ -6,7 +6,7 @@ set -euo pipefail
 
 VAULT="${KB_VAULT:-$HOME/Knowledge}"
 LOCAL_VERSION=$(cat "$VAULT/VERSION" 2>/dev/null || echo "0.0.0")
-REPO="your-org/keybrain"  # replace with actual GitHub org/repo
+REPO="raomaster/keybrain"
 
 echo "KeyBrain Update"
 echo "  Local version: $LOCAL_VERSION"
@@ -21,7 +21,9 @@ fi
 
 echo "  Latest version: $LATEST"
 
-if [ "$LOCAL_VERSION" = "$LATEST" ]; then
+LATEST_CLEAN="${LATEST#v}"
+
+if [ "$LOCAL_VERSION" = "$LATEST_CLEAN" ]; then
   echo "Already up to date."
   exit 0
 fi
