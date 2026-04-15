@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# ChromaDB
+.chromadb/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Obsidian
+.obsidian/
+
+# Logs
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.env
+.env.local
