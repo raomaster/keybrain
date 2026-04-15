@@ -1,0 +1,21 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: pip install pytest
+      - name: Install vault
+        run: bash setup/install.sh --non-interactive --skip-obsidian
+      - name: Run unit tests
+        run: python -m pytest tests/unit/ -v
+      - name: Run smoke tests
+        run: bash setup/test-install.sh
