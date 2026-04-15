@@ -90,7 +90,7 @@ Via [markitdown](https://github.com/microsoft/markitdown):
 | Audio (transcription) | `.mp3`, `.wav` |
 | HTML | `.html` |
 | CSV/JSON | `.csv`, `.json` |
-| YouTube | URLs |
+| YouTube | URLs (extracts title, description, and transcript) |
 | EPub | `.epub` |
 
 ## Supported agents
