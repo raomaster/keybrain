@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# post-commit hook — captures commits to KeyBrain inbox
+# Install: run from any project → kb-install-hooks
+
+KB="${KB_VAULT:-$HOME/Knowledge}/inbox"
+PROJECT=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)")
+BRANCH=$(git branch --show-current 2>/dev/null)
+MSG=$(git log -1 --pretty='%B' 2>/dev/null | head -5)
+FILES=$(git diff-tree --no-commit-id -r --name-only HEAD 2>/dev/null | head -10 | tr '\n' ', ')
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+[ -z "$MSG" ] && exit 0
+mkdir -p "$KB"
+
+cat > "$KB/${TIMESTAMP}-commit-${PROJECT}.md" << EOF
+---
+title: "Commit: $PROJECT — $MSG"
+date: $(date +%Y-%m-%d)
+tags: [commit, project, $PROJECT]
+project: "$PROJECT"
+branch: "$BRANCH"
+---
+
+# Commit: $PROJECT
+
+**Project:** $PROJECT ($BRANCH)
+**Date:** $(date '+%Y-%m-%d %H:%M')
+**Message:** $MSG
+
+**Files changed:** $FILES
+EOF
