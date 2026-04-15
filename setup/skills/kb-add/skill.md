@@ -18,12 +18,12 @@ Add the following to the Knowledge Base inbox at `${KB_VAULT:-$HOME/Knowledge}/i
         md = MarkItDown()
         result = md.convert('$ARGUMENTS')
         print(result.text_content)
-        " > "$KB_VAULT/inbox/$(date +%Y%m%d-%H%M%S)-youtube.md"
+        " > "${KB_VAULT:-$HOME/Knowledge}/inbox/$(date +%Y%m%d-%H%M%S)-youtube.md"
         ```
      2. Confirm the file was saved and tell the user it will be processed shortly.
      3. Launch background processing:
         ```bash
-        cd "$KB_VAULT" && nohup bash bin/process-inbox.sh &>/dev/null &
+        cd "${KB_VAULT:-$HOME/Knowledge}" && nohup bash bin/process-inbox.sh &>/dev/null &
         ```
      4. When background processing completes, tell the user the content has been archived with connections.
 
