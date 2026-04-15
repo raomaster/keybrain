@@ -11,15 +11,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install pytest
-        run: pip install pytest
       - name: Install dependencies
         run: |
-          python3 -m venv .venv
-          .venv/bin/pip install -r requirements.txt --quiet
+          python -m pip install --upgrade pip
+          pip install pytest chromadb markitdown
       - name: Make scripts executable
         run: chmod +x bin/kb bin/process-inbox.sh bin/kb-index bin/kb-search-semantic bin/kb-import-chatgpt bin/kb-update setup/test-install.sh
       - name: Run unit tests
-        run: python3 -m pytest tests/unit/ -v
+        run: python -m pytest tests/unit/ -v
       - name: Run smoke tests
         run: KB_VAULT="$GITHUB_WORKSPACE" bash setup/test-install.sh
