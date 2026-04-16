@@ -231,16 +231,11 @@ When asked to do a "health check" of the vault:
 - [[another-article]]
 ```
 
-### Wiki articles available (update when new ones are added)
+### Wiki articles available
 
-| Wikilink | When to use it |
-|----------|----------------|
-| `[[knowledge-base-system]]` | Anything about the vault, KB, Obsidian, ChromaDB, automation |
-| `[[chromadb]]` | Semantic search, vectors, embeddings, RAG |
-
-### Rule for new wikis
-
-If you process content about a topic that doesn't have a wiki article and there's enough material (3+ files about the same topic), create a new article in `wiki/concepts/` or `wiki/technologies/` and add it to the table above.
+This vault's wikilink definitions are stored in `wiki/_wikilinks.md`.
+Read that file to see which `[[wikilinks]]` are available and when to use them.
+This keeps wikilinks private and vault-specific without being overwritten by `kb update`.
 
 ---
 
