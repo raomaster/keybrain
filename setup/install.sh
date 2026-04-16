@@ -118,18 +118,9 @@ if [ "$SKIP_OBSIDIAN" = false ]; then
   fi
 fi
 
-# ── 5. yt-dlp (YouTube transcripts) ───────────────────────
-step "yt-dlp (for processing YouTube videos)"
-if ! command -v yt-dlp &>/dev/null; then
-  if [ "$PLATFORM" = "macos" ]; then
-    brew install yt-dlp
-  else
-    sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
-    sudo chmod +x /usr/local/bin/yt-dlp
-  fi
-else
-  log "yt-dlp already installed: $(yt-dlp --version)"
-fi
+# ── 5. markitdown (YouTube + document processing) ──────────
+# markitdown is installed via requirements.txt in the Python venv (see step 6)
+log "markitdown: will be installed via pip install -r requirements.txt"
 
 # ── 6. Python 3.12 + venv + deps ──────────────────────────
 step "Python 3.12 + dependencies"
@@ -229,8 +220,7 @@ if [ ! -f "$SETTINGS_FILE" ]; then
       "Bash(git -C $VAULT_DIR*)",
       "Bash(grep $VAULT_DIR*)",
       "Bash(python3 $VAULT_DIR/bin*)",
-      "Bash(yt-dlp*)",
-      "Read(/tmp/yt-*)"
+      "Bash($VAULT_DIR/.venv/bin/python3*)"
     ]
   }
 }

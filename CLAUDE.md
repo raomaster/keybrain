@@ -98,17 +98,19 @@ If the inbox file contains only a URL (or a URL with brief text), it's not the c
 - Classify as article (`raw/articles/`)
 
 **YouTube videos** (URL contains `youtube.com` or `youtu.be`):
-1. Extract the video ID from the URL
-2. Use Bash to get transcript and metadata with yt-dlp:
+1. Use markitdown to extract metadata and transcript:
    ```bash
-   yt-dlp --dump-json "URL" 2>/dev/null  # metadata: title, description, channel
-   yt-dlp --write-auto-sub --sub-lang es,en --sub-format txt --skip-download -o "/tmp/yt_%(id)s" "URL" 2>/dev/null
-   cat /tmp/yt_VIDEOID.en.txt 2>/dev/null || cat /tmp/yt_VIDEOID.es.txt 2>/dev/null  # transcript
+   python3 -c "
+   from markitdown import MarkItDown
+   md = MarkItDown()
+   result = md.convert('URL')
+   print(result.text_content)
+   "
    ```
-3. From JSON: extract title, description, channel, upload_date, duration
-4. From transcript: include full text (or first 3000 chars if very long)
-5. Classify by topic — may be article, course, or research
-6. Clean up temp files from /tmp when done
+2. Markitdown returns: title, keywords, runtime, description, and full transcript
+3. The file in inbox may already contain this content (if processed by kb-add). If so, skip this step.
+4. Classify by topic — may be article, course, or research
+5. Do NOT use WebFetch or Playwright for YouTube — markitdown handles it
 
 ### Step 4: File content
 
@@ -229,16 +231,11 @@ When asked to do a "health check" of the vault:
 - [[another-article]]
 ```
 
-### Wiki articles available (update when new ones are added)
+### Wiki articles available
 
-| Wikilink | When to use it |
-|----------|----------------|
-| `[[knowledge-base-system]]` | Anything about the vault, KB, Obsidian, ChromaDB, automation |
-| `[[chromadb]]` | Semantic search, vectors, embeddings, RAG |
-
-### Rule for new wikis
-
-If you process content about a topic that doesn't have a wiki article and there's enough material (3+ files about the same topic), create a new article in `wiki/concepts/` or `wiki/technologies/` and add it to the table above.
+This vault's wikilink definitions are stored in `wiki/_wikilinks.md`.
+Read that file to see which `[[wikilinks]]` are available and when to use them.
+This keeps wikilinks private and vault-specific without being overwritten by `kb update`.
 
 ---
 
