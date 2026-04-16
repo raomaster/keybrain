@@ -25,3 +25,7 @@ logs/
 # Env
 .env
 .env.local
+
+# Google Drive Desktop temp files
+.tmp.driveupload/
+.tmp.drivedownload/
