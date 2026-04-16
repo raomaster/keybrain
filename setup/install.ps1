@@ -76,14 +76,9 @@ if (-not $SkipObsidian) {
     }
 }
 
-# ── 6. yt-dlp ────────────────────────────────────────────────
-Step "yt-dlp (for processing YouTube videos)"
-if (-not (Get-Command yt-dlp -ErrorAction SilentlyContinue)) {
-    Log "Installing yt-dlp..."
-    winget install --id yt-dlp.yt-dlp -e --source winget --silent
-} else {
-    Log "yt-dlp already installed."
-}
+# ── 6. markitdown (YouTube + document processing) ────────────
+# markitdown is installed via requirements.txt in the Python venv (see step 7)
+Log "markitdown: will be installed via pip install -r requirements.txt"
 
 # ── 7. Python 3.12 + venv + deps ────────────────────────────
 Step "Python 3.12 + dependencies"

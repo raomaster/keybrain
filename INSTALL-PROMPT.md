@@ -17,7 +17,7 @@ Please do the following:
 
 3. The installer will:
    - Ask where to install (default: ~/Knowledge, or any path like ~/Google Drive/Knowledge)
-   - Install dependencies (Git, Node.js, Python 3.12, Obsidian, yt-dlp)
+   - Install dependencies (Git, Node.js, Python 3.12, Obsidian, markitdown)
    - Create a Python virtual environment with ChromaDB
    - Set up CLI commands (kb, kb-search-semantic, kb-index)
    - Install Claude Code skills
