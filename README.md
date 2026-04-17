@@ -134,6 +134,23 @@ vault/
 
 The "magic" is `CLAUDE.md` — 250+ lines of instructions that tell your AI agent exactly how to classify, organize, and maintain your knowledge. The scripts are thin wrappers.
 
+## Cloud sync
+
+KeyBrain works with any cloud sync provider. If you store your vault inside a synced folder, exclude `.venv/` and `.chromadb/` — they are regenerable and can be hundreds of MB.
+
+| Provider | How to exclude a folder |
+|----------|------------------------|
+| **Google Drive** | Create an empty `.gdignore` file inside the folder |
+| **iCloud** | Rename the folder with a `.nosync` extension (e.g. `.venv.nosync`) |
+| **OneDrive** | Rename the folder with a `.nosync` extension |
+| **Dropbox** | Use Selective Sync in the Dropbox desktop app |
+
+```bash
+# Google Drive example
+touch ~/Knowledge/.venv/.gdignore
+touch ~/Knowledge/.chromadb/.gdignore
+```
+
 ## License
 
 MIT
