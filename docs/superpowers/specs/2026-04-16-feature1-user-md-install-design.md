@@ -108,7 +108,19 @@ Agent session starts
 - Updating an existing USER.md: never overwritten, user owns it
 - Validating USER.md content: not checked by install or by the agent
 
+## Testing
+
+`tests/unit/test_install_user_md.py` — misma convención que los tests existentes (subprocess + tmp_path).
+
+**Casos:**
+1. `test_creates_user_md_when_claude_dir_exists` — simula `~/.claude/` presente, USER.md ausente → archivo creado con template YAML
+2. `test_skips_user_md_when_already_exists` — USER.md ya existe → contenido no sobreescrito
+3. `test_skips_user_md_when_no_claude_dir` — `~/.claude/` no existe → USER.md no creado
+
+**Approach:** Extraer la lógica del paso 10b a una función Bash en install.sh (`create_user_md_template`) que recibe `CLAUDE_DIR` como argumento. Los tests la invocan directamente via `bash -c "source setup/install.sh && create_user_md_template $tmpdir/.claude"` con un directorio temporal, sin ejecutar el install completo.
+
 ## Files Changed
 
 - `README.md`: add "Personalizing your agent" section
-- `setup/install.sh`: add step 10b + append USER.md instruction to step 11 heredoc
+- `setup/install.sh`: add step 10b (función `create_user_md_template`) + append USER.md instruction to step 11 heredoc
+- `tests/unit/test_install_user_md.py`: 3 casos de prueba para el paso 10b
