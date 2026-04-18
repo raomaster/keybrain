@@ -136,9 +136,11 @@ If a file with the same dedupe key already exists in `raw/memory-derived/`, kb-d
 
 ---
 
-## bin/kb-dream (Python)
+## bin/kb-dream + bin/kb-dream.py
 
-### Responsibilities
+Follows the existing KeyBrain CLI pattern: `bin/kb-dream` is a short shell wrapper, `bin/kb-dream.py` holds all real logic. Same pattern as `kb-search-semantic` / `kb-search-semantic.py` and `kb-index` / `kb-index.py`.
+
+### Responsibilities (kb-dream.py)
 
 1. Parse all `memory/YYYY-MM-DD.md` files in the last 30 days (configurable via `--days`)
 2. Apply promotion matrix
@@ -149,6 +151,10 @@ If a file with the same dedupe key already exists in `raw/memory-derived/`, kb-d
 ### Invocation
 
 ```bash
+# bin/kb-dream (shell wrapper — same pattern as kb-search-semantic)
+#!/bin/bash
+exec "$(dirname "$0")/../.venv/bin/python3" "$(dirname "$0")/kb-dream.py" "$@"
+
 # Manual
 kb dream
 
@@ -213,6 +219,7 @@ touch "$VAULT_DIR/raw/memory-derived/.gitkeep"
 **Install kb-dream (step 8, permissions):**
 ```bash
 chmod +x "$VAULT_DIR/bin/kb-dream"
+# kb-dream.py is not executed directly — only via wrapper, no chmod needed
 ```
 
 **Add to CLAUDE.md heredoc (step 11):**
@@ -268,12 +275,14 @@ Add to "General Rules" section:
 
 ## Files created/modified
 
-| File | Action |
-|------|--------|
-| `bin/kb-dream` | Create (Python script) |
-| `bin/kb-index.py` | Modify: exclusions + memory-derived type + status filter |
-| `setup/install.sh` | Modify: memory/ dirs, MEMORY.md init, kb-dream chmod, CLAUDE.md heredoc, summary box |
-| `CLAUDE.md` (vault) | Modify: add memory/ rules to General Rules |
-| `setup/skills/kb-dream/skill.md` | Create: slash command to trigger dreaming manually |
-| `memory/.gitkeep` | Create via install |
-| `raw/memory-derived/.gitkeep` | Create via install |
+| File | Action | Install step |
+|------|--------|-------------|
+| `bin/kb-dream` | Create: shell wrapper | step 8 (chmod +x) |
+| `bin/kb-dream.py` | Create: Python implementation | step 8 (no chmod) |
+| `bin/kb-index.py` | Modify: exclusions + memory-derived type + status filter | — |
+| `setup/install.sh` | Modify: memory/ dirs + MEMORY.md init (step 7/8), CLAUDE.md heredoc (step 11), summary box | — |
+| `CLAUDE.md` (vault) | Modify: add memory/ rules to General Rules | — |
+| `setup/skills/kb-dream/skill.md` | Create: slash command to trigger dreaming manually | step 10 (copied to commands/) |
+| `memory/.gitkeep` | Create via install | step 7 |
+| `raw/memory-derived/.gitkeep` | Create via install | step 7 |
+| `MEMORY.md` | Create via install (empty template) | step 7 |
