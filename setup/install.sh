@@ -25,6 +25,40 @@ warn()   { echo -e "${YELLOW}[KB WARN]${NC} $*"; }
 error()  { echo -e "${RED}[KB ERROR]${NC} $*"; exit 1; }
 step()   { echo -e "\n${GREEN}━━━ $* ━━━${NC}"; }
 
+# ── Feature functions (testable via source) ─────────────
+
+create_user_md_template() {
+  local claude_dir="$1"
+  local user_md="$claude_dir/USER.md"
+  if [ -d "$claude_dir" ] && [ ! -f "$user_md" ]; then
+    cat > "$user_md" << 'USEREOF'
+---
+# USER.md — [Your Name]
+# Read on-demand, not every prompt.
+---
+
+identity:
+  name: [Your Name]
+  role: [e.g. "Senior Software Engineer", "Data Scientist"]
+
+expertise: [python, typescript, react]
+
+projects:
+  main: [~/Code/myproject]
+
+style:
+  expects: [peer-level technical, options with tradeoffs]
+  dislikes: [over-explanation, unsolicited refactors]
+USEREOF
+    log "USER.md template created at $user_md — edit it with your info."
+  else
+    log "USER.md already exists or Claude Code not detected, skipping."
+  fi
+}
+
+# Guard: stop execution when sourced (e.g., by tests)
+[[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -182,6 +216,10 @@ if [ -d "$SKILLS_SRC" ]; then
   log "Skills installed to $COMMANDS_DIR"
 fi
 
+# ── 10b. USER.md template ─────────────────────────────────
+step "Creating USER.md template"
+create_user_md_template "$HOME/.claude"
+
 # ── 11. Claude Code global CLAUDE.md ───────────────────────
 step "Configuring global Claude Code instructions"
 CLAUDE_DIR="$HOME/.claude"
@@ -196,6 +234,7 @@ if ! grep -q "KeyBrain" "$CLAUDE_MD" 2>/dev/null; then
 When making an important technical decision, save it without asking: `kb "Decision: [what] — Why: [reason] — Rejected: [alternatives]"`
 After executing a Superpowers plan, export the file: `kb add docs/superpowers/plans/[plan].md`
 KeyBrain KB at `$KB_VAULT` with ChromaDB — use `kb-search-semantic "query"` before answering technical questions that might be in the vault.
+Read `~/.claude/USER.md` only when needing project/user context orientation.
 CLAUDEEOF
   log "Global CLAUDE.md configured."
 else
