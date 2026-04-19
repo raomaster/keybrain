@@ -89,6 +89,40 @@ AGENTSEOF
   fi
 }
 
+configure_copilot_instructions() {
+  local copilot_file="$1"
+  mkdir -p "$(dirname "$copilot_file")"
+  if ! grep -q "KeyBrain" "$copilot_file" 2>/dev/null; then
+    cat >> "$copilot_file" << 'COPILOTEOF'
+
+## KeyBrain
+When making an important technical decision, save it without asking: `kb "Decision: [what] — Why: [reason] — Rejected: [alternatives]"`
+KeyBrain KB at `$KB_VAULT` with ChromaDB — use `kb-search-semantic "query"` before answering technical questions that might be in the vault.
+After executing a Superpowers plan, export the file: `kb add docs/superpowers/plans/[plan].md`
+COPILOTEOF
+    log "GitHub Copilot instructions configured at $copilot_file"
+  else
+    log "Copilot instructions already have KeyBrain."
+  fi
+}
+
+configure_jetbrains_ai() {
+  local rules_dir="$1"
+  local rules_file="$rules_dir/keybrain.md"
+  mkdir -p "$rules_dir"
+  if [ ! -f "$rules_file" ]; then
+    cat > "$rules_file" << 'JBEOF'
+## KeyBrain
+When making an important technical decision, save it without asking: `kb "Decision: [what] — Why: [reason] — Rejected: [alternatives]"`
+KeyBrain KB at `$KB_VAULT` with ChromaDB — use `kb-search-semantic "query"` before answering technical questions that might be in the vault.
+After executing a Superpowers plan, export the file: `kb add docs/superpowers/plans/[plan].md`
+JBEOF
+    log "JetBrains AI rules configured at $rules_file"
+  else
+    log "JetBrains AI rules already exist."
+  fi
+}
+
 # Guard: stop execution when sourced (e.g., by tests)
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
 
@@ -106,6 +140,8 @@ done
 OS="$(uname -s)"
 if grep -qi microsoft /proc/version 2>/dev/null; then
   PLATFORM="wsl2"
+elif echo "$OS" | grep -qiE "mingw|msys|cygwin"; then
+  PLATFORM="gitbash"
 elif [ "$OS" = "Darwin" ]; then
   PLATFORM="macos"
 elif [ "$OS" = "Linux" ]; then
@@ -153,6 +189,8 @@ step "Claude Code CLI"
 if ! command -v node &>/dev/null; then
   if [ "$PLATFORM" = "macos" ]; then
     brew install node
+  elif [ "$PLATFORM" = "gitbash" ]; then
+    warn "Node.js not found. Install manually from nodejs.org if you want Claude Code."
   else
     curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
     sudo apt-get install -y nodejs
@@ -160,10 +198,14 @@ if ! command -v node &>/dev/null; then
 fi
 
 if ! command -v claude &>/dev/null; then
-  log "Installing Claude Code..."
-  npm install -g @anthropic-ai/claude-code 2>/dev/null || {
-    warn "npm not available. Install Claude Code manually from: https://claude.ai/code"
-  }
+  if [ "$PLATFORM" = "gitbash" ]; then
+    warn "Claude Code not found. Install it manually or use GitHub Copilot / JetBrains AI instead."
+  else
+    log "Installing Claude Code..."
+    npm install -g @anthropic-ai/claude-code 2>/dev/null || {
+      warn "npm not available. Install Claude Code manually from: https://claude.ai/code"
+    }
+  fi
 else
   log "Claude Code already installed: $(claude --version 2>/dev/null || echo 'ok')"
 fi
@@ -191,8 +233,20 @@ log "markitdown: will be installed via pip install -r requirements.txt"
 
 # ── 6. Python 3.12 + venv + deps ──────────────────────────
 step "Python 3.12 + dependencies"
-PYTHON_BIN="$(command -v python3.12 || command -v python3)"
+if [ "$PLATFORM" = "gitbash" ]; then
+  PYTHON_BIN="$(command -v python3 2>/dev/null || command -v python 2>/dev/null)"
+  if [ -z "$PYTHON_BIN" ]; then
+    error "Python not found. Install Python 3.12+ from python.org and re-run."
+  fi
+else
+  PYTHON_BIN="$(command -v python3.12 || command -v python3)"
+fi
 VENV_DIR="$VAULT_DIR/.venv"
+if [ "$PLATFORM" = "gitbash" ]; then
+  VENV_BIN="$VENV_DIR/Scripts"
+else
+  VENV_BIN="$VENV_DIR/bin"
+fi
 
 if [ ! -d "$VENV_DIR" ]; then
   log "Creating venv in $VENV_DIR..."
@@ -200,8 +254,8 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 log "Installing Python dependencies..."
-"$VENV_DIR/bin/pip" install -r "$VAULT_REPO_DIR/requirements.txt" --quiet
-log "ChromaDB: $($VENV_DIR/bin/python3 -c 'import chromadb; print(chromadb.__version__)' 2>/dev/null || echo 'installed')"
+"$VENV_BIN/pip" install -r "$VAULT_REPO_DIR/requirements.txt" --quiet
+log "ChromaDB: $($VENV_BIN/python -c 'import chromadb; print(chromadb.__version__)' 2>/dev/null || echo 'installed')"
 
 # ── 7. Copy vault to target path ───────────────────────────
 step "Setting up vault at $VAULT_DIR"
@@ -235,7 +289,9 @@ log "Scripts are executable."
 # ── 9. PATH + KB_VAULT in shell ────────────────────────────
 step "Adding bin/ to PATH and setting KB_VAULT"
 SHELL_RC="$HOME/.zshrc"
-[ "$SHELL" = "/bin/bash" ] && SHELL_RC="$HOME/.bashrc"
+if [ "$SHELL" = "/bin/bash" ] || [ "$PLATFORM" = "gitbash" ]; then
+  SHELL_RC="$HOME/.bashrc"
+fi
 
 if ! grep -q "KB_VAULT" "$SHELL_RC" 2>/dev/null; then
   echo '' >> "$SHELL_RC"
@@ -306,6 +362,14 @@ if [ "$OPENCLAW_DETECTED" = true ]; then
 else
   log "OpenClaw not detected, skipping."
 fi
+
+# ── 11c. GitHub Copilot instructions ──────────────────────
+step "Configuring GitHub Copilot instructions"
+configure_copilot_instructions "$HOME/.github/copilot-instructions.md"
+
+# ── 11d. JetBrains AI rules ───────────────────────────────
+step "Configuring JetBrains AI rules"
+configure_jetbrains_ai "$HOME/.aiassistant/rules"
 
 # ── 12. Claude Code settings.json ──────────────────────────
 step "Configuring automatic permissions for the vault"
@@ -392,5 +456,9 @@ echo "│     process-inbox.sh every 15 minutes.\"                 │"
 echo "│                                                          │"
 echo "│  Set up nightly dream (memory consolidation):           │"
 echo "│    \"Configure cron: 0 2 * * * \$KB_VAULT/bin/kb-dream\"  │"
+echo "│                                                          │"
+echo "│  AI agent instructions configured:                      │"
+echo "│    ~/.github/copilot-instructions.md  (Copilot)        │"
+echo "│    ~/.aiassistant/rules/keybrain.md   (JetBrains AI)   │"
 echo "└─────────────────────────────────────────────────────────┘"
 echo ""
