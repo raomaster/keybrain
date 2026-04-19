@@ -50,6 +50,7 @@ SRC="$TMPDIR/keybrain-${LATEST#v}"
 # Update framework files only
 for item in bin setup templates CLAUDE.md README.md INSTALL-PROMPT.md CONTRIBUTING.md CHANGELOG.md requirements.txt; do
   if [ -e "$SRC/$item" ]; then
+    rm -rf "$VAULT/$item"
     cp -r "$SRC/$item" "$VAULT/$item"
   fi
 done
