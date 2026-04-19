@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+VAULT="${KB_VAULT:-$HOME/Knowledge}"
+PYTHON="$VAULT/.venv/bin/python3"
+[ ! -f "$PYTHON" ] && PYTHON="python3"
+exec "$PYTHON" "$VAULT/bin/kb-dream.py" "$@"

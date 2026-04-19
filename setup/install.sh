@@ -216,11 +216,20 @@ else
   log "Already at vault: $VAULT_DIR"
 fi
 
+mkdir -p "$VAULT_DIR/memory"
+touch "$VAULT_DIR/memory/.gitkeep"
+mkdir -p "$VAULT_DIR/raw/memory-derived"
+touch "$VAULT_DIR/raw/memory-derived/.gitkeep"
+if [ ! -f "$VAULT_DIR/MEMORY.md" ]; then
+  printf "# Memory\n_Updated: never — run kb-dream to populate_\n" > "$VAULT_DIR/MEMORY.md"
+fi
+
 # ── 8. Script permissions ──────────────────────────────────
 step "Execution permissions"
 chmod +x "$VAULT_DIR/bin/kb" "$VAULT_DIR/bin/process-inbox.sh"
 chmod +x "$VAULT_DIR/bin/kb-index" "$VAULT_DIR/bin/kb-search-semantic"
 chmod +x "$VAULT_DIR/bin/kb-import-chatgpt" "$VAULT_DIR/bin/kb-update"
+chmod +x "$VAULT_DIR/bin/kb-dream"
 log "Scripts are executable."
 
 # ── 9. PATH + KB_VAULT in shell ────────────────────────────
@@ -280,6 +289,10 @@ When making an important technical decision, save it without asking: `kb "Decisi
 After executing a Superpowers plan, export the file: `kb add docs/superpowers/plans/[plan].md`
 KeyBrain KB at `$KB_VAULT` with ChromaDB — use `kb-search-semantic "query"` before answering technical questions that might be in the vault.
 Read `~/.claude/USER.md` only when needing project/user context orientation.
+memory:
+  write: "During session, append claims to memory/YYYY-MM-DD.md (incremental, not only at end)"
+  format: "- claim: \"...\"\n  memory_type: user-rule|user-preference|decision|technical-finding|temporary-context\n  confidence: low|medium|high\n  context: \"...\""
+  load: "Read MEMORY.md at session start for behavioral context"
 CLAUDEEOF
   log "Global CLAUDE.md configured."
 else
@@ -376,5 +389,8 @@ echo "│                                                          │"
 echo "│  Set up auto-processing (copy-paste to your agent):     │"
 echo "│    \"Configure a cron job to run \$KB_VAULT/bin/          │"
 echo "│     process-inbox.sh every 15 minutes.\"                 │"
+echo "│                                                          │"
+echo "│  Set up nightly dream (memory consolidation):           │"
+echo "│    \"Configure cron: 0 2 * * * \$KB_VAULT/bin/kb-dream\"  │"
 echo "└─────────────────────────────────────────────────────────┘"
 echo ""
