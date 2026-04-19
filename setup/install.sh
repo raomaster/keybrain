@@ -56,6 +56,39 @@ USEREOF
   fi
 }
 
+install_openclaw_skills() {
+  local skills_src="$1"
+  local openclaw_dir="$2"
+  local openclaw_skills_dir="$openclaw_dir/workspace/skills"
+  mkdir -p "$openclaw_skills_dir"
+  if cp -r "$skills_src/"* "$openclaw_skills_dir/"; then
+    find "$openclaw_skills_dir" -name "skill.md" -type f -execdir mv {} SKILL.md \;
+    log "OpenClaw skills installed to $openclaw_skills_dir"
+    return 0
+  else
+    warn "Could not copy skills to OpenClaw. Check permissions on $openclaw_skills_dir"
+    return 1
+  fi
+}
+
+configure_openclaw_agents_md() {
+  local openclaw_dir="$1"
+  local agents_md="$openclaw_dir/workspace/AGENTS.md"
+  mkdir -p "$(dirname "$agents_md")"
+  if ! grep -q "KeyBrain" "$agents_md" 2>/dev/null; then
+    cat >> "$agents_md" << 'AGENTSEOF'
+
+## KeyBrain
+When making an important technical decision, save it without asking: `kb "Decision: [what] — Why: [reason] — Rejected: [alternatives]"`
+After executing a Superpowers plan, export the file: `kb add docs/superpowers/plans/[plan].md`
+KeyBrain KB at `$KB_VAULT` with ChromaDB — use `kb-search-semantic "query"` before answering technical questions that might be in the vault.
+AGENTSEOF
+    log "Global OpenClaw AGENTS.md configured."
+  else
+    log "OpenClaw AGENTS.md already has KeyBrain instructions."
+  fi
+}
+
 # Guard: stop execution when sourced (e.g., by tests)
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
 
@@ -220,6 +253,18 @@ fi
 step "Creating USER.md template"
 create_user_md_template "$HOME/.claude"
 
+# ── 10c. OpenClaw skills ───────────────────────────────────
+step "Installing KeyBrain skills in OpenClaw"
+OPENCLAW_DETECTED=false
+if [ -d "$HOME/.openclaw" ] || command -v openclaw &>/dev/null; then
+  OPENCLAW_DETECTED=true
+fi
+if [ "$OPENCLAW_DETECTED" = true ]; then
+  install_openclaw_skills "$SKILLS_SRC" "$HOME/.openclaw"
+else
+  log "OpenClaw not detected, skipping."
+fi
+
 # ── 11. Claude Code global CLAUDE.md ───────────────────────
 step "Configuring global Claude Code instructions"
 CLAUDE_DIR="$HOME/.claude"
@@ -239,6 +284,14 @@ CLAUDEEOF
   log "Global CLAUDE.md configured."
 else
   log "Global CLAUDE.md already has KeyBrain instructions."
+fi
+
+# ── 11b. OpenClaw AGENTS.md ───────────────────────────────
+step "Configuring global OpenClaw instructions"
+if [ "$OPENCLAW_DETECTED" = true ]; then
+  configure_openclaw_agents_md "$HOME/.openclaw"
+else
+  log "OpenClaw not detected, skipping."
 fi
 
 # ── 12. Claude Code settings.json ──────────────────────────
