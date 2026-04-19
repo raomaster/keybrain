@@ -116,6 +116,34 @@ export KB_VAULT="$HOME/Google Drive/My Drive/Knowledge"  # cloud sync
 export PATH="$KB_VAULT/bin:$PATH"
 ```
 
+## Personalizing your agent
+
+KeyBrain installs a `USER.md` template to `~/.claude/USER.md` during setup (Claude Code only). Edit it with your name, role, and preferences — the agent reads it on demand to tailor responses to you.
+
+**Why YAML?** Structured key-value format uses ~30% fewer tokens than prose ([reference](https://dev.to/inozem/structured-prompts-how-yaml-cut-my-llm-costs-by-30-3a56)), keeping your identity file fast to load.
+
+```yaml
+---
+# USER.md — [Your Name]
+# Read on-demand, not every prompt.
+---
+
+identity:
+  name: [Your Name]
+  role: [e.g. "Senior Software Engineer", "Data Scientist"]
+
+expertise: [python, typescript, react]
+
+projects:
+  main: [~/Code/myproject]
+
+style:
+  expects: [peer-level technical, options with tradeoffs]
+  dislikes: [over-explanation, unsolicited refactors]
+```
+
+For other agents (Copilot, Cursor, Codex): create the file manually and add an instruction to read it in your agent's config (e.g., `.github/copilot-instructions.md`, `AGENTS.md`).
+
 ## Architecture
 
 ```

@@ -19,6 +19,14 @@ STATE_FILE = VAULT / ".chromadb" / "index_state.json"
 
 SKIP_DIRS = {".git", ".obsidian", ".venv", ".chromadb", "logs", "bin", "setup", "templates"}
 SKIP_FILES = {"INSTALL-PROMPT.md"}
+EXCLUDED_PATHS = {"memory", "MEMORY.md"}
+
+
+def should_index(path: Path, vault_root: Path) -> bool:
+    rel = path.relative_to(vault_root)
+    if rel.parts[0] in EXCLUDED_PATHS:
+        return False
+    return True
 
 
 def parse_frontmatter(text: str) -> tuple:
@@ -67,13 +75,14 @@ def save_state(state: dict):
 
 def get_doc_type(path: Path) -> str:
     parts = path.parts
-    if "articles" in parts: return "article"
-    if "courses" in parts:  return "course"
-    if "research" in parts: return "research"
-    if "projects" in parts: return "project"
-    if "decisions" in parts: return "decision"
-    if "conversations" in parts: return "conversation"
-    if "wiki" in parts:     return "wiki"
+    if "memory-derived" in parts: return "memory-derived"
+    if "articles" in parts:       return "article"
+    if "courses" in parts:        return "course"
+    if "research" in parts:       return "research"
+    if "projects" in parts:       return "project"
+    if "decisions" in parts:      return "decision"
+    if "conversations" in parts:  return "conversation"
+    if "wiki" in parts:           return "wiki"
     return "note"
 
 
@@ -92,6 +101,8 @@ def index_vault(force: bool = False):
             continue
         if md_file.name in SKIP_FILES or md_file.name.startswith('.'):
             continue
+        if not should_index(md_file, VAULT):
+            continue
 
         rel_path = str(md_file.relative_to(VAULT))
         fhash = file_hash(md_file)
@@ -105,8 +116,6 @@ def index_vault(force: bool = False):
             continue
 
         meta, content = parse_frontmatter(text)
-        doc_type = get_doc_type(md_file)
-        chunks = chunk_text(content)
 
         try:
             existing = col.get(where={"source_path": rel_path})
@@ -114,6 +123,13 @@ def index_vault(force: bool = False):
                 col.delete(ids=existing["ids"])
         except Exception:
             pass
+
+        if meta.get("status") in ("rejected", "superseded"):
+            state[rel_path] = fhash
+            continue
+
+        doc_type = get_doc_type(md_file)
+        chunks = chunk_text(content)
 
         for i, chunk in enumerate(chunks):
             if not chunk.strip():

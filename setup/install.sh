@@ -25,6 +25,73 @@ warn()   { echo -e "${YELLOW}[KB WARN]${NC} $*"; }
 error()  { echo -e "${RED}[KB ERROR]${NC} $*"; exit 1; }
 step()   { echo -e "\n${GREEN}━━━ $* ━━━${NC}"; }
 
+# ── Feature functions (testable via source) ─────────────
+
+create_user_md_template() {
+  local claude_dir="$1"
+  local user_md="$claude_dir/USER.md"
+  if [ -d "$claude_dir" ] && [ ! -f "$user_md" ]; then
+    cat > "$user_md" << 'USEREOF'
+---
+# USER.md — [Your Name]
+# Read on-demand, not every prompt.
+---
+
+identity:
+  name: [Your Name]
+  role: [e.g. "Senior Software Engineer", "Data Scientist"]
+
+expertise: [python, typescript, react]
+
+projects:
+  main: [~/Code/myproject]
+
+style:
+  expects: [peer-level technical, options with tradeoffs]
+  dislikes: [over-explanation, unsolicited refactors]
+USEREOF
+    log "USER.md template created at $user_md — edit it with your info."
+  else
+    log "USER.md already exists or Claude Code not detected, skipping."
+  fi
+}
+
+install_openclaw_skills() {
+  local skills_src="$1"
+  local openclaw_dir="$2"
+  local openclaw_skills_dir="$openclaw_dir/workspace/skills"
+  mkdir -p "$openclaw_skills_dir"
+  if cp -r "$skills_src/"* "$openclaw_skills_dir/"; then
+    find "$openclaw_skills_dir" -name "skill.md" -type f -execdir mv {} SKILL.md \;
+    log "OpenClaw skills installed to $openclaw_skills_dir"
+    return 0
+  else
+    warn "Could not copy skills to OpenClaw. Check permissions on $openclaw_skills_dir"
+    return 1
+  fi
+}
+
+configure_openclaw_agents_md() {
+  local openclaw_dir="$1"
+  local agents_md="$openclaw_dir/workspace/AGENTS.md"
+  mkdir -p "$(dirname "$agents_md")"
+  if ! grep -q "KeyBrain" "$agents_md" 2>/dev/null; then
+    cat >> "$agents_md" << 'AGENTSEOF'
+
+## KeyBrain
+When making an important technical decision, save it without asking: `kb "Decision: [what] — Why: [reason] — Rejected: [alternatives]"`
+After executing a Superpowers plan, export the file: `kb add docs/superpowers/plans/[plan].md`
+KeyBrain KB at `$KB_VAULT` with ChromaDB — use `kb-search-semantic "query"` before answering technical questions that might be in the vault.
+AGENTSEOF
+    log "Global OpenClaw AGENTS.md configured."
+  else
+    log "OpenClaw AGENTS.md already has KeyBrain instructions."
+  fi
+}
+
+# Guard: stop execution when sourced (e.g., by tests)
+[[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -149,11 +216,20 @@ else
   log "Already at vault: $VAULT_DIR"
 fi
 
+mkdir -p "$VAULT_DIR/memory"
+touch "$VAULT_DIR/memory/.gitkeep"
+mkdir -p "$VAULT_DIR/raw/memory-derived"
+touch "$VAULT_DIR/raw/memory-derived/.gitkeep"
+if [ ! -f "$VAULT_DIR/MEMORY.md" ]; then
+  printf "# Memory\n_Updated: never — run kb-dream to populate_\n" > "$VAULT_DIR/MEMORY.md"
+fi
+
 # ── 8. Script permissions ──────────────────────────────────
 step "Execution permissions"
 chmod +x "$VAULT_DIR/bin/kb" "$VAULT_DIR/bin/process-inbox.sh"
 chmod +x "$VAULT_DIR/bin/kb-index" "$VAULT_DIR/bin/kb-search-semantic"
 chmod +x "$VAULT_DIR/bin/kb-import-chatgpt" "$VAULT_DIR/bin/kb-update"
+chmod +x "$VAULT_DIR/bin/kb-dream"
 log "Scripts are executable."
 
 # ── 9. PATH + KB_VAULT in shell ────────────────────────────
@@ -182,6 +258,22 @@ if [ -d "$SKILLS_SRC" ]; then
   log "Skills installed to $COMMANDS_DIR"
 fi
 
+# ── 10b. USER.md template ─────────────────────────────────
+step "Creating USER.md template"
+create_user_md_template "$HOME/.claude"
+
+# ── 10c. OpenClaw skills ───────────────────────────────────
+step "Installing KeyBrain skills in OpenClaw"
+OPENCLAW_DETECTED=false
+if [ -d "$HOME/.openclaw" ] || command -v openclaw &>/dev/null; then
+  OPENCLAW_DETECTED=true
+fi
+if [ "$OPENCLAW_DETECTED" = true ]; then
+  install_openclaw_skills "$SKILLS_SRC" "$HOME/.openclaw"
+else
+  log "OpenClaw not detected, skipping."
+fi
+
 # ── 11. Claude Code global CLAUDE.md ───────────────────────
 step "Configuring global Claude Code instructions"
 CLAUDE_DIR="$HOME/.claude"
@@ -196,10 +288,23 @@ if ! grep -q "KeyBrain" "$CLAUDE_MD" 2>/dev/null; then
 When making an important technical decision, save it without asking: `kb "Decision: [what] — Why: [reason] — Rejected: [alternatives]"`
 After executing a Superpowers plan, export the file: `kb add docs/superpowers/plans/[plan].md`
 KeyBrain KB at `$KB_VAULT` with ChromaDB — use `kb-search-semantic "query"` before answering technical questions that might be in the vault.
+Read `~/.claude/USER.md` only when needing project/user context orientation.
+memory:
+  write: "During session, append claims to memory/YYYY-MM-DD.md (incremental, not only at end)"
+  format: "- claim: \"...\"\n  memory_type: user-rule|user-preference|decision|technical-finding|temporary-context\n  confidence: low|medium|high\n  context: \"...\""
+  load: "Read MEMORY.md at session start for behavioral context"
 CLAUDEEOF
   log "Global CLAUDE.md configured."
 else
   log "Global CLAUDE.md already has KeyBrain instructions."
+fi
+
+# ── 11b. OpenClaw AGENTS.md ───────────────────────────────
+step "Configuring global OpenClaw instructions"
+if [ "$OPENCLAW_DETECTED" = true ]; then
+  configure_openclaw_agents_md "$HOME/.openclaw"
+else
+  log "OpenClaw not detected, skipping."
 fi
 
 # ── 12. Claude Code settings.json ──────────────────────────
@@ -284,5 +389,8 @@ echo "│                                                          │"
 echo "│  Set up auto-processing (copy-paste to your agent):     │"
 echo "│    \"Configure a cron job to run \$KB_VAULT/bin/          │"
 echo "│     process-inbox.sh every 15 minutes.\"                 │"
+echo "│                                                          │"
+echo "│  Set up nightly dream (memory consolidation):           │"
+echo "│    \"Configure cron: 0 2 * * * \$KB_VAULT/bin/kb-dream\"  │"
 echo "└─────────────────────────────────────────────────────────┘"
 echo ""

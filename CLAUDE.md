@@ -246,3 +246,5 @@ This keeps wikilinks private and vault-specific without being overwritten by `kb
 - **Wikilinks mandatory**: every file ends with `## Connections`. No exceptions.
 - **Date consistency**: always use `YYYY-MM-DD` format.
 - **No empty files**: don't create files with just frontmatter. If there's not enough content, don't create the file yet.
+- **memory/ is not inbox**: never process `memory/` files with kb-process. They are episodic session logs, not classifiable content.
+- **MEMORY.md is not wiki**: never edit MEMORY.md manually or include it in wiki compilation. It is rebuilt by kb-dream.
