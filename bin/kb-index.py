@@ -117,18 +117,19 @@ def index_vault(force: bool = False):
 
         meta, content = parse_frontmatter(text)
 
-        if meta.get("status") in ("rejected", "superseded"):
-            continue
-
-        doc_type = get_doc_type(md_file)
-        chunks = chunk_text(content)
-
         try:
             existing = col.get(where={"source_path": rel_path})
             if existing["ids"]:
                 col.delete(ids=existing["ids"])
         except Exception:
             pass
+
+        if meta.get("status") in ("rejected", "superseded"):
+            state[rel_path] = fhash
+            continue
+
+        doc_type = get_doc_type(md_file)
+        chunks = chunk_text(content)
 
         for i, chunk in enumerate(chunks):
             if not chunk.strip():

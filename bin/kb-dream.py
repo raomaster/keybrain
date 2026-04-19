@@ -34,7 +34,9 @@ def slugify(text: str, max_len: int = 30) -> str:
 
 
 def dedupe_key(memory_type: str, claim: str) -> str:
-    return f"{memory_type}:{slugify(claim)}"
+    slug = re.sub(r"[^\w\s-]", "", claim.lower())
+    slug = re.sub(r"[\s_]+", "-", slug).strip("-")
+    return f"{memory_type}:{slug}"
 
 
 def parse_memory_file(path: Path) -> list:
@@ -142,7 +144,7 @@ def run_dream(vault: Path, days: int = 30):
     skipped = 0
     existing_keys = existing_dedupe_keys(memory_derived_dir)
 
-    for f in sorted(memory_dir.glob("*.md")):
+    for f in sorted(memory_dir.glob("*.md"), reverse=True):
         if f.name == ".gitkeep":
             continue
         try:
