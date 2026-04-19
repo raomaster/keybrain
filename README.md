@@ -28,6 +28,22 @@ I want to install KeyBrain — my personal knowledge base.
 
 **Requirements:** macOS, Linux, or Windows 10/11. Python 3.12+ installed automatically.
 
+### Setting up Obsidian
+
+After the installer runs, open your vault in Obsidian:
+
+1. Install [Obsidian](https://obsidian.md) if not already installed
+   - macOS: the installer does this automatically via Homebrew
+   - Windows/Linux: download from obsidian.md
+2. Open Obsidian
+3. Click **Open folder as vault**
+4. Navigate to your vault path (default: `~/Knowledge`)
+5. Click **Open**
+
+Your knowledge base will appear with all folders and notes organized automatically.
+
+> **Corporate Windows users (Git Bash):** Run `bash setup/install.sh` directly from Git Bash — no PowerShell required. Python 3.12+ must be installed first from [python.org](https://python.org).
+
 ## How it works
 
 ```
