@@ -358,6 +358,14 @@ else
   log "OpenClaw not detected, skipping."
 fi
 
+# ── 11c. GitHub Copilot instructions ──────────────────────
+step "Configuring GitHub Copilot instructions"
+configure_copilot_instructions "$HOME/.github/copilot-instructions.md"
+
+# ── 11d. JetBrains AI rules ───────────────────────────────
+step "Configuring JetBrains AI rules"
+configure_jetbrains_ai "$HOME/.aiassistant/rules"
+
 # ── 12. Claude Code settings.json ──────────────────────────
 step "Configuring automatic permissions for the vault"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
@@ -443,5 +451,9 @@ echo "│     process-inbox.sh every 15 minutes.\"                 │"
 echo "│                                                          │"
 echo "│  Set up nightly dream (memory consolidation):           │"
 echo "│    \"Configure cron: 0 2 * * * \$KB_VAULT/bin/kb-dream\"  │"
+echo "│                                                          │"
+echo "│  AI agent instructions configured:                      │"
+echo "│    ~/.github/copilot-instructions.md  (Copilot)        │"
+echo "│    ~/.aiassistant/rules/keybrain.md   (JetBrains AI)   │"
 echo "└─────────────────────────────────────────────────────────┘"
 echo ""
