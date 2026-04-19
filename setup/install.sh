@@ -242,6 +242,11 @@ else
   PYTHON_BIN="$(command -v python3.12 || command -v python3)"
 fi
 VENV_DIR="$VAULT_DIR/.venv"
+if [ "$PLATFORM" = "gitbash" ]; then
+  VENV_BIN="$VENV_DIR/Scripts"
+else
+  VENV_BIN="$VENV_DIR/bin"
+fi
 
 if [ ! -d "$VENV_DIR" ]; then
   log "Creating venv in $VENV_DIR..."
@@ -249,8 +254,8 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 log "Installing Python dependencies..."
-"$VENV_DIR/bin/pip" install -r "$VAULT_REPO_DIR/requirements.txt" --quiet
-log "ChromaDB: $($VENV_DIR/bin/python3 -c 'import chromadb; print(chromadb.__version__)' 2>/dev/null || echo 'installed')"
+"$VENV_BIN/pip" install -r "$VAULT_REPO_DIR/requirements.txt" --quiet
+log "ChromaDB: $($VENV_BIN/python -c 'import chromadb; print(chromadb.__version__)' 2>/dev/null || echo 'installed')"
 
 # ── 7. Copy vault to target path ───────────────────────────
 step "Setting up vault at $VAULT_DIR"
