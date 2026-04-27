@@ -2,14 +2,20 @@
 # process-inbox.sh — Called by cron every 15 minutes
 # 1. Checks if inbox has new files
 # 2. Calls Claude to classify and archive them
-# 3. Git commit + push
-# 4. Re-index ChromaDB
+# 3. Re-index ChromaDB
+#
+# Git is opt-in — the vault may live in Google Drive, OneDrive, or any other
+# backup system. Set env vars to enable:
+#   KB_AUTO_COMMIT=true   commit changes locally after processing
+#   KB_AUTO_PUSH=true     also push to remote (requires KB_AUTO_COMMIT=true)
 
 set -euo pipefail
 
 VAULT="${KB_VAULT:-$HOME/Knowledge}"
 LOG="$VAULT/logs/process.log"
 CLAUDE_BIN="${CLAUDE_BIN:-$(command -v claude 2>/dev/null || echo "$HOME/.local/bin/claude")}"
+KB_AUTO_COMMIT="${KB_AUTO_COMMIT:-false}"
+KB_AUTO_PUSH="${KB_AUTO_PUSH:-false}"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG" 2>/dev/null || echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
@@ -43,20 +49,24 @@ fi
 
 log "Claude processing complete."
 
-# Git commit and push
-cd "$VAULT"
-git add -A
-
-if ! git diff --cached --quiet; then
-  COMMIT_MSG="kb: auto-processed $(date '+%Y-%m-%d %H:%M')"
-  git commit -m "$COMMIT_MSG"
-  if git push 2>> "$LOG"; then
-    log "Committed and pushed: $COMMIT_MSG"
+# Git sync (opt-in)
+if [ "$KB_AUTO_COMMIT" = "true" ]; then
+  cd "$VAULT"
+  git add -A
+  if ! git diff --cached --quiet; then
+    COMMIT_MSG="kb: auto-processed $(date '+%Y-%m-%d %H:%M')"
+    git commit -m "$COMMIT_MSG"
+    log "Committed locally: $COMMIT_MSG"
+    if [ "$KB_AUTO_PUSH" = "true" ]; then
+      if git push 2>> "$LOG"; then
+        log "Pushed to remote."
+      else
+        log "WARNING: Push failed. Commit saved locally."
+      fi
+    fi
   else
-    log "WARNING: Push failed. Commit saved locally."
+    log "No changes to commit."
   fi
-else
-  log "No changes to commit."
 fi
 
 # Re-index ChromaDB

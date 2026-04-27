@@ -123,6 +123,22 @@ JBEOF
   fi
 }
 
+configure_codex_agents_md() {
+  local agents_md="$1"
+  mkdir -p "$(dirname "$agents_md")"
+  if ! grep -q "KeyBrain" "$agents_md" 2>/dev/null; then
+    cat >> "$agents_md" << 'CODEXEOF'
+
+## KeyBrain
+When making an important technical decision, save it without asking: `kb "Decision: [what] — Why: [reason] — Rejected: [alternatives]"`
+KeyBrain KB at `$KB_VAULT` with ChromaDB — to search the vault, start Codex with `--add-dir $KB_VAULT` and use `kb-search-semantic "query"` before answering technical questions.
+CODEXEOF
+    log "Codex AGENTS.md configured at $agents_md"
+  else
+    log "Codex AGENTS.md already has KeyBrain instructions."
+  fi
+}
+
 # Guard: stop execution when sourced (e.g., by tests)
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
 
@@ -371,6 +387,10 @@ configure_copilot_instructions "$HOME/.github/copilot-instructions.md"
 step "Configuring JetBrains AI rules"
 configure_jetbrains_ai "$HOME/.aiassistant/rules"
 
+# ── 11e. Codex AGENTS.md ──────────────────────────────────
+step "Configuring Codex instructions"
+configure_codex_agents_md "$HOME/.codex/AGENTS.md"
+
 # ── 12. Claude Code settings.json ──────────────────────────
 step "Configuring automatic permissions for the vault"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
@@ -387,9 +407,8 @@ if [ ! -f "$SETTINGS_FILE" ]; then
       "Bash(ls $VAULT_DIR*)",
       "Bash(find $VAULT_DIR*)",
       "Bash(git -C $VAULT_DIR*)",
-      "Bash(grep $VAULT_DIR*)",
-      "Bash(python3 $VAULT_DIR/bin*)",
-      "Bash($VAULT_DIR/.venv/bin/python3*)"
+      "Bash(kb *)",
+      "Bash($VAULT_DIR/.venv/bin/python3 -c *)"
     ]
   }
 }
