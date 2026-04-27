@@ -1,6 +1,6 @@
 # KeyBrain
 
-**Your AI-powered personal knowledge base. Local-first, agent-managed, visually explorable.**
+**Persistent memory and research base for AI coding agents. Local-first, open source, yours.**
 
 [Install](#install) · [How it works](#how-it-works) · [Commands](#commands) · [Docs](docs/use-cases/) · [Contributing](CONTRIBUTING.md)
 
@@ -8,18 +8,28 @@
 
 ## What is KeyBrain?
 
-KeyBrain is an open-source framework that turns any folder into a personal knowledge base managed by AI agents. It captures articles, PDFs, decisions, course notes, and ideas — then automatically classifies, organizes, and makes them searchable.
+KeyBrain gives AI coding agents (Claude Code, Copilot, Cursor) persistent memory and a research base they can actually use. Capture URLs, PDFs, papers, decisions, and notes — your agent classifies, organizes, and recalls them across sessions via semantic search.
 
-**No cloud. No API keys. No vendor lock-in.**
+No more re-explaining context every conversation. No cloud. No API keys. No vendor lock-in.
+
+## Why KeyBrain?
+
+Two weeks ago Andrej Karpathy [tweeted](https://x.com/karpathy/status/2039805659525644595) something that crystallized what I'd been building:
+
+> *"Using LLMs to build personal knowledge bases for various topics of research interest..."*
+
+The problem is concrete: AI coding agents start from zero every session. They forget your architectural decisions, your conventions, your accumulated research. Existing solutions (Notion AI, Mem, hosted plugins) ship your context to servers you don't control.
+
+KeyBrain is the local-first answer: a knowledge base your agent maintains for you, that lives on your disk, and works across every AI tool you use.
 
 ## Install
 
 Copy-paste this prompt to any AI agent (Claude Code, Copilot, Cursor, Gemini CLI):
 
 ```
-I want to install KeyBrain — my personal knowledge base.
+I want to install KeyBrain — persistent memory and research base for my AI coding agents.
 
-1. Clone the repo: git clone https://github.com/your-org/keybrain.git ~/keybrain
+1. Clone the repo: git clone https://github.com/raomaster/keybrain.git ~/keybrain
 2. Run the installer: bash ~/keybrain/setup/install.sh
 3. The script will ask where to install (default: ~/Knowledge)
 4. After installation, configure auto-processing:
