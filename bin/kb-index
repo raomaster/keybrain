@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 VAULT="${KB_VAULT:-$HOME/Knowledge}"
-PYTHON="$VAULT/.venv/bin/python3"
+VENV="${KB_VENV:-$VAULT/.venv}"
+PYTHON="$VENV/bin/python3"
+[ ! -f "$PYTHON" ] && PYTHON="$VENV/Scripts/python.exe"
 [ ! -f "$PYTHON" ] && PYTHON="python3"
 exec "$PYTHON" "$VAULT/bin/kb-index.py" "$@"

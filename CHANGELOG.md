@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-04-27
+### Added
+- `KB_PROCESS_AGENT` to select the inbox processing backend (`opencode` by default, `claude` optional).
+- Installer detection and prompt for OpenCode vs Claude Code during setup.
+- `KB_VENV` and `KB_CHROMADB` support to keep runtime artifacts outside synced vaults.
+
+### Changed
+- `process-inbox.sh` now uses OpenCode by default for corporate environments where Claude Code is not approved.
+- Python wrappers now respect `KB_VENV` and support both Unix `bin/python3` and Windows `Scripts/python.exe` virtual environments.
+
+### Fixed
+- `kb process` no longer requires Claude login when OpenCode is configured.
+- `process-inbox.sh` re-indexing works when the Python runtime lives outside `$KB_VAULT`.
+
 ## [0.3.0] - 2026-04-27
 ### Added
 - `ROADMAP.md` with the planned path for Codex knowledge capture, safer inbox processing, and future multi-agent adapter support.

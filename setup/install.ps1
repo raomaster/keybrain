@@ -8,6 +8,9 @@
 
 param(
     [string]$VaultPath = "$env:USERPROFILE\Knowledge",
+    [string]$RuntimePath = "$env:LOCALAPPDATA\KeyBrain",
+    [ValidateSet("opencode", "claude")]
+    [string]$ProcessAgent = "",
     [switch]$SkipObsidian,
     [switch]$NonInteractive
 )
@@ -80,6 +83,30 @@ if (-not $SkipObsidian) {
 # markitdown is installed via requirements.txt in the Python venv (see step 7)
 Log "markitdown: will be installed via pip install -r requirements.txt"
 
+# ── 6b. Processing agent ────────────────────────────────────
+Step "KeyBrain processing agent"
+$hasOpenCode = [bool](Get-Command opencode -ErrorAction SilentlyContinue)
+$hasClaude = [bool](Get-Command claude -ErrorAction SilentlyContinue)
+
+if (-not $ProcessAgent) {
+    if ($NonInteractive) {
+        if ($hasOpenCode) { $ProcessAgent = "opencode" }
+        elseif ($hasClaude) { $ProcessAgent = "claude" }
+        else { Abort "No supported process agent detected. Install OpenCode or Claude Code, or pass -ProcessAgent opencode|claude after provisioning it." }
+    } else {
+        Write-Host "Which agent should process KeyBrain inbox files?"
+        Write-Host "  1) OpenCode (recommended) — $(if ($hasOpenCode) { 'detected' } else { 'not detected yet' })"
+        Write-Host "  2) Claude Code — $(if ($hasClaude) { 'detected' } else { 'not detected yet' })"
+        $choice = Read-Host "Agent [Enter for opencode]"
+        switch ($choice) {
+            "2" { $ProcessAgent = "claude" }
+            "claude" { $ProcessAgent = "claude" }
+            default { $ProcessAgent = "opencode" }
+        }
+    }
+}
+Log "Using $ProcessAgent for kb process."
+
 # ── 7. Python 3.12 + venv + deps ────────────────────────────
 Step "Python 3.12 + dependencies"
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
@@ -88,11 +115,15 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
     $env:PATH += ";$env:LOCALAPPDATA\Programs\Python\Python312"
 }
 
-$venvDir = "$VaultPath\.venv"
+$venvDir = if ($env:KB_VENV) { $env:KB_VENV } else { "$RuntimePath\venv" }
+$chromadbDir = if ($env:KB_CHROMADB) { $env:KB_CHROMADB } else { "$RuntimePath\chromadb" }
+
+New-Item -ItemType Directory -Path $RuntimePath -Force | Out-Null
 if (-not (Test-Path $venvDir)) {
     Log "Creating venv in $venvDir..."
     python -m venv $venvDir
 }
+New-Item -ItemType Directory -Path $chromadbDir -Force | Out-Null
 
 Log "Installing Python dependencies..."
 $scriptDir = Split-Path -Parent $PSScriptRoot
@@ -117,21 +148,37 @@ if ($scriptDir -ne $VaultPath) {
 Step "Creating kb command for PowerShell"
 $kbScript = @"
 # kb — KeyBrain capture for Windows PowerShell
-param([string]`$Command, [string]`$Arg)
+param([string]`$Command, [Parameter(ValueFromRemainingArguments=`$true)][string[]]`$KbArgs)
 `$VAULT = `$env:KB_VAULT
 if (-not `$VAULT) { `$VAULT = "`$env:USERPROFILE\Knowledge" }
+`$VENV = `$env:KB_VENV
+if (-not `$VENV) { `$VENV = "$venvDir" }
+`$CHROMADB = `$env:KB_CHROMADB
+if (-not `$CHROMADB) { `$CHROMADB = "$chromadbDir" }
+`$env:KB_VAULT = `$VAULT
+`$env:KB_VENV = `$VENV
+`$env:KB_CHROMADB = `$CHROMADB
+if (-not `$env:KB_PROCESS_AGENT) { `$env:KB_PROCESS_AGENT = "$ProcessAgent" }
 `$INBOX = "`$VAULT\inbox"
 `$TIMESTAMP = Get-Date -Format "yyyyMMdd-HHmmss"
+`$ArgText = (`$KbArgs -join " ").Trim()
 
 switch (`$Command) {
     "add" {
-        if (-not `$Arg) { Write-Host "Usage: kb add <file>"; exit 1 }
-        Copy-Item `$Arg `$INBOX\
-        Write-Host "Added: `$(Split-Path -Leaf `$Arg) → inbox/"
+        if (-not `$ArgText) { Write-Host "Usage: kb add <file>"; exit 1 }
+        Copy-Item `$ArgText `$INBOX\
+        Write-Host "Added: `$(Split-Path -Leaf `$ArgText) → inbox/"
     }
     "process" {
         Write-Host "Processing inbox..."
-        & "`$VAULT\bin\process-inbox.sh"
+        bash "`$VAULT\bin\process-inbox.sh"
+    }
+    "index" {
+        & "`$VENV\Scripts\python.exe" "`$VAULT\bin\kb-index.py" @KbArgs
+    }
+    "search" {
+        if (-not `$ArgText) { Write-Host "Usage: kb search <query>"; exit 1 }
+        & "`$VENV\Scripts\python.exe" "`$VAULT\bin\kb-search-semantic.py" @KbArgs
     }
     "status" {
         `$count = (Get-ChildItem `$INBOX -File | Where-Object Name -ne ".gitkeep").Count
@@ -143,7 +190,7 @@ switch (`$Command) {
     default {
         if (-not `$Command) { Write-Host "Usage: kb <text> | kb add <file> | kb process | kb status"; exit 1 }
         `$content = `$Command
-        if (`$Arg) { `$content += " `$Arg" }
+        if (`$ArgText) { `$content += " `$ArgText" }
         `$content | Out-File -FilePath "`$INBOX\`$TIMESTAMP.md" -Encoding utf8
         Write-Host "Saved to inbox: `$TIMESTAMP.md"
     }
@@ -160,14 +207,25 @@ $profileDir = Split-Path $PROFILE
 New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
 
 $aliasLine = "function kb { & `"$VaultPath\bin\kb.ps1`" @args }"
+function Ensure-ProfileLine {
+    param([string]$Pattern, [string]$Line, [string]$Description)
+    if (-not (Test-Path $PROFILE) -or -not (Select-String -Path $PROFILE -Pattern $Pattern -Quiet)) {
+        Add-Content -Path $PROFILE -Value $Line
+        Log "$Description added to PowerShell profile."
+    } else {
+        Log "$Description already configured."
+    }
+}
+
 if (-not (Test-Path $PROFILE) -or -not (Select-String -Path $PROFILE -Pattern "KeyBrain" -Quiet)) {
     Add-Content -Path $PROFILE -Value "`n# KeyBrain"
-    Add-Content -Path $PROFILE -Value "`$env:KB_VAULT = `"$VaultPath`""
-    Add-Content -Path $PROFILE -Value $aliasLine
-    Log "Alias 'kb' and KB_VAULT added to PowerShell profile."
-} else {
-    Log "Alias already exists."
 }
+
+Ensure-ProfileLine "KB_VAULT" "`$env:KB_VAULT = `"$VaultPath`"" "KB_VAULT"
+Ensure-ProfileLine "KB_VENV" "`$env:KB_VENV = `"$venvDir`"" "KB_VENV"
+Ensure-ProfileLine "KB_CHROMADB" "`$env:KB_CHROMADB = `"$chromadbDir`"" "KB_CHROMADB"
+Ensure-ProfileLine "KB_PROCESS_AGENT" "`$env:KB_PROCESS_AGENT = `"$ProcessAgent`"" "KB_PROCESS_AGENT"
+Ensure-ProfileLine "function kb" $aliasLine "Alias 'kb'"
 
 # ── 10. Claude Code skills ──────────────────────────────────
 Step "Installing Claude Code skills"

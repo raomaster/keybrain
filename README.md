@@ -36,6 +36,8 @@ I want to install KeyBrain — persistent memory and research base for my AI cod
    "Configure a cron job to run $KB_VAULT/bin/process-inbox.sh every 15 minutes."
 ```
 
+During installation, KeyBrain detects OpenCode and Claude Code and asks which agent should power `kb process`. OpenCode is the recommended default for corporate environments where Claude is not approved.
+
 **Requirements:** macOS, Linux, or Windows 10/11. Python 3.12+ installed automatically.
 
 ### Setting up Obsidian
@@ -135,10 +137,16 @@ KeyBrain works with any AI agent via [agentskills.io](https://agentskills.io):
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `KB_VAULT` | `$HOME/Knowledge` | Vault location |
+| `KB_VENV` | `$KB_VAULT/.venv` | Python virtual environment location |
+| `KB_CHROMADB` | `$KB_VAULT/.chromadb` | ChromaDB index location |
+| `KB_PROCESS_AGENT` | `opencode` | Agent backend for `kb process` (`opencode` or `claude`) |
 
 ```bash
 # In your shell profile (.zshrc / .bashrc / PowerShell $PROFILE)
 export KB_VAULT="$HOME/Google Drive/My Drive/Knowledge"  # cloud sync
+export KB_VENV="$HOME/.local/share/keybrain/venv"        # optional runtime outside sync
+export KB_CHROMADB="$HOME/.local/share/keybrain/chromadb" # optional index outside sync
+export KB_PROCESS_AGENT="opencode"                       # or "claude"
 export PATH="$KB_VAULT/bin:$PATH"
 ```
 
