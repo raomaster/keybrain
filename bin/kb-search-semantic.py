@@ -11,7 +11,7 @@ import argparse
 from pathlib import Path
 
 VAULT = Path(os.environ.get("KB_VAULT", str(Path.home() / "Knowledge")))
-DB_PATH = VAULT / ".chromadb"
+DB_PATH = Path(os.environ.get("KB_CHROMADB", str(VAULT / ".chromadb")))
 
 
 def search(query: str, n_results: int = 6, doc_type: str = None) -> None:

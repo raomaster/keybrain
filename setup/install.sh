@@ -3,16 +3,22 @@
 # KeyBrain — Setup Script (macOS / Linux / WSL2)
 # ============================================================
 # Usage: bash setup/install.sh
-#   --vault-path PATH   Set vault location (default: $HOME/Knowledge)
-#   --skip-obsidian     Skip Obsidian installation
-#   --non-interactive   No prompts (for CI)
+#   --vault-path PATH      Set vault location (default: $HOME/Knowledge)
+#   --runtime-path PATH    Set runtime location for .venv/.chromadb
+#   --process-agent NAME   Agent for kb process: opencode or claude
+#   --skip-git            Skip git initialization in the vault
+#   --skip-obsidian        Skip Obsidian installation
+#   --non-interactive      No prompts (for CI)
 # ============================================================
 
 set -e
 
 VAULT_DIR="$HOME/Knowledge"
+RUNTIME_DIR=""
+PROCESS_AGENT=""
 NON_INTERACTIVE=false
 SKIP_OBSIDIAN=false
+SKIP_GIT=false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VAULT_REPO_DIR="$(dirname "$SCRIPT_DIR")"
 GREEN='\033[0;32m'
@@ -146,6 +152,9 @@ CODEXEOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --vault-path)    VAULT_DIR="$2"; shift 2 ;;
+    --runtime-path)  RUNTIME_DIR="$2"; shift 2 ;;
+    --process-agent) PROCESS_AGENT="$2"; shift 2 ;;
+    --skip-git)      SKIP_GIT=true; shift ;;
     --skip-obsidian) SKIP_OBSIDIAN=true; shift ;;
     --non-interactive) NON_INTERACTIVE=true; shift ;;
     *) error "Unknown option: $1" ;;
@@ -176,6 +185,55 @@ if [ "$NON_INTERACTIVE" = false ]; then
   read -r -p "Path [Enter for $VAULT_DIR]: " USER_PATH
   VAULT_DIR="${USER_PATH:-$VAULT_DIR}"
 fi
+
+if [ -z "$RUNTIME_DIR" ]; then
+  RUNTIME_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/keybrain"
+fi
+VENV_DIR="${KB_VENV:-$RUNTIME_DIR/venv}"
+CHROMADB_DIR="${KB_CHROMADB:-$RUNTIME_DIR/chromadb}"
+
+detect_process_agent() {
+  local has_opencode=false
+  local has_claude=false
+  command -v opencode &>/dev/null && has_opencode=true
+  command -v claude &>/dev/null && has_claude=true
+
+  if [ -n "$PROCESS_AGENT" ]; then
+    return
+  fi
+
+  if [ "$NON_INTERACTIVE" = true ]; then
+    if [ "$has_opencode" = true ]; then
+      PROCESS_AGENT="opencode"
+    elif [ "$has_claude" = true ]; then
+      PROCESS_AGENT="claude"
+    else
+      PROCESS_AGENT="opencode"
+    fi
+    return
+  fi
+
+  echo ""
+  echo "Which agent should process KeyBrain inbox files?"
+  if [ "$has_opencode" = true ]; then
+    echo "  1) OpenCode (recommended) — detected"
+  else
+    echo "  1) OpenCode (recommended) — not detected yet"
+  fi
+  if [ "$has_claude" = true ]; then
+    echo "  2) Claude Code — detected"
+  else
+    echo "  2) Claude Code — not detected yet"
+  fi
+  read -r -p "Agent [Enter for opencode]: " AGENT_CHOICE
+  case "${AGENT_CHOICE:-1}" in
+    1|opencode|OpenCode) PROCESS_AGENT="opencode" ;;
+    2|claude|Claude) PROCESS_AGENT="claude" ;;
+    *) warn "Unknown selection, using OpenCode."; PROCESS_AGENT="opencode" ;;
+  esac
+}
+
+detect_process_agent
 
 # ── 1. Homebrew (macOS) ────────────────────────────────────
 if [ "$PLATFORM" = "macos" ]; then
@@ -257,7 +315,6 @@ if [ "$PLATFORM" = "gitbash" ]; then
 else
   PYTHON_BIN="$(command -v python3.12 || command -v python3)"
 fi
-VENV_DIR="$VAULT_DIR/.venv"
 if [ "$PLATFORM" = "gitbash" ]; then
   VENV_BIN="$VENV_DIR/Scripts"
 else
@@ -265,9 +322,11 @@ else
 fi
 
 if [ ! -d "$VENV_DIR" ]; then
+  mkdir -p "$(dirname "$VENV_DIR")"
   log "Creating venv in $VENV_DIR..."
   "$PYTHON_BIN" -m venv "$VENV_DIR"
 fi
+mkdir -p "$CHROMADB_DIR"
 
 log "Installing Python dependencies..."
 "$VENV_BIN/pip" install -r "$VAULT_REPO_DIR/requirements.txt" --quiet
@@ -313,8 +372,11 @@ if ! grep -q "KB_VAULT" "$SHELL_RC" 2>/dev/null; then
   echo '' >> "$SHELL_RC"
   echo '# KeyBrain' >> "$SHELL_RC"
   echo "export KB_VAULT=\"$VAULT_DIR\"" >> "$SHELL_RC"
+  echo "export KB_VENV=\"$VENV_DIR\"" >> "$SHELL_RC"
+  echo "export KB_CHROMADB=\"$CHROMADB_DIR\"" >> "$SHELL_RC"
+  echo "export KB_PROCESS_AGENT=\"$PROCESS_AGENT\"" >> "$SHELL_RC"
   echo 'export PATH="$KB_VAULT/bin:$PATH"' >> "$SHELL_RC"
-  log "KB_VAULT and PATH added to $SHELL_RC"
+  log "KB_VAULT, KB_VENV, KB_CHROMADB, KB_PROCESS_AGENT, and PATH added to $SHELL_RC"
 else
   log "KB_VAULT already configured."
 fi
@@ -408,7 +470,7 @@ if [ ! -f "$SETTINGS_FILE" ]; then
       "Bash(find $VAULT_DIR*)",
       "Bash(git -C $VAULT_DIR*)",
       "Bash(kb *)",
-      "Bash($VAULT_DIR/.venv/bin/python3 -c *)"
+      "Bash($VENV_DIR/bin/python3 -c *)"
     ]
   }
 }
@@ -423,7 +485,9 @@ fi
 # ── 13. Git repo ───────────────────────────────────────────
 step "Git repo"
 cd "$VAULT_DIR"
-if [ ! -d ".git" ]; then
+if [ "$SKIP_GIT" = true ]; then
+  log "Skipping git initialization."
+elif [ ! -d ".git" ]; then
   git init
   git add -A
   git commit -m "init: KeyBrain knowledge vault"

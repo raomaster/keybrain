@@ -14,8 +14,8 @@ import argparse
 from pathlib import Path
 
 VAULT = Path(os.environ.get("KB_VAULT", str(Path.home() / "Knowledge")))
-DB_PATH = VAULT / ".chromadb"
-STATE_FILE = VAULT / ".chromadb" / "index_state.json"
+DB_PATH = Path(os.environ.get("KB_CHROMADB", str(VAULT / ".chromadb")))
+STATE_FILE = DB_PATH / "index_state.json"
 
 SKIP_DIRS = {".git", ".obsidian", ".venv", ".chromadb", "logs", "bin", "setup", "templates"}
 SKIP_FILES = {"INSTALL-PROMPT.md"}

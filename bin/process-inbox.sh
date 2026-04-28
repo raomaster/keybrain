@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
 # process-inbox.sh — Called by cron every 15 minutes
 # 1. Checks if inbox has new files
-# 2. Calls Claude to classify and archive them
+# 2. Calls the configured agent to classify and archive them
 # 3. Re-index ChromaDB
 #
 # Git is opt-in — the vault may live in Google Drive, OneDrive, or any other
 # backup system. Set env vars to enable:
+#   KB_PROCESS_AGENT=opencode  use OpenCode for inbox processing (default)
+#   KB_PROCESS_AGENT=claude    use Claude Code for inbox processing
 #   KB_AUTO_COMMIT=true   commit changes locally after processing
 #   KB_AUTO_PUSH=true     also push to remote (requires KB_AUTO_COMMIT=true)
 
 set -euo pipefail
 
 VAULT="${KB_VAULT:-$HOME/Knowledge}"
+VENV="${KB_VENV:-$VAULT/.venv}"
 LOG="$VAULT/logs/process.log"
+KB_PROCESS_AGENT="${KB_PROCESS_AGENT:-opencode}"
+OPENCODE_BIN="${OPENCODE_BIN:-$(command -v opencode 2>/dev/null || echo "$HOME/.opencode/bin/opencode")}"
 CLAUDE_BIN="${CLAUDE_BIN:-$(command -v claude 2>/dev/null || echo "$HOME/.local/bin/claude")}"
 KB_AUTO_COMMIT="${KB_AUTO_COMMIT:-false}"
 KB_AUTO_PUSH="${KB_AUTO_PUSH:-false}"
+PROCESS_PROMPT="Process the files in inbox/ following exactly the instructions in CLAUDE.md. For each file: classify it, create the destination file with correct frontmatter and full content, update wiki/_index.md, and delete the file from inbox/ (leave .gitkeep intact). When done, report what you processed and where each file was placed."
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG" 2>/dev/null || echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
@@ -32,22 +38,37 @@ if [ "$FILE_COUNT" -eq 0 ]; then
 fi
 
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log "Processing $FILE_COUNT file(s) in inbox..."
+log "Processing $FILE_COUNT file(s) in inbox with $KB_PROCESS_AGENT..."
 
-# Call Claude non-interactive to process inbox
-"$CLAUDE_BIN" \
-  --print "Process the files in inbox/ following exactly the instructions in CLAUDE.md. For each file: classify it, create the destination file with correct frontmatter and full content, update wiki/_index.md, and delete the file from inbox/ (leave .gitkeep intact). When done, report what you processed and where each file was placed." \
-  --cwd "$VAULT" \
-  --allowedTools "Read,Write,Edit,Bash,Glob,Grep,WebFetch" \
-  >> "$LOG" 2>&1
+case "$KB_PROCESS_AGENT" in
+  opencode)
+    "$OPENCODE_BIN" run \
+      --dir "$VAULT" \
+      --dangerously-skip-permissions \
+      --title "KeyBrain inbox processing" \
+      "$PROCESS_PROMPT" \
+      >> "$LOG" 2>&1
+    ;;
+  claude)
+    "$CLAUDE_BIN" \
+      --print "$PROCESS_PROMPT" \
+      --cwd "$VAULT" \
+      --allowedTools "Read,Write,Edit,Bash,Glob,Grep,WebFetch" \
+      >> "$LOG" 2>&1
+    ;;
+  *)
+    log "ERROR: unsupported KB_PROCESS_AGENT: $KB_PROCESS_AGENT"
+    exit 1
+    ;;
+esac
 
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then
-  log "ERROR: Claude exited with code $EXIT_CODE"
+  log "ERROR: $KB_PROCESS_AGENT exited with code $EXIT_CODE"
 fi
 
-log "Claude processing complete."
+log "$KB_PROCESS_AGENT processing complete."
 
 # Git sync (opt-in)
 if [ "$KB_AUTO_COMMIT" = "true" ]; then
@@ -70,7 +91,8 @@ if [ "$KB_AUTO_COMMIT" = "true" ]; then
 fi
 
 # Re-index ChromaDB
-PYTHON_VENV="$VAULT/.venv/bin/python3"
+PYTHON_VENV="$VENV/bin/python3"
+[ ! -f "$PYTHON_VENV" ] && PYTHON_VENV="$VENV/Scripts/python.exe"
 if [ -f "$PYTHON_VENV" ]; then
   log "Re-indexing ChromaDB..."
   "$PYTHON_VENV" "$VAULT/bin/kb-index.py" >> "$LOG" 2>&1
