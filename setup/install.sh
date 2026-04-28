@@ -208,7 +208,7 @@ detect_process_agent() {
     elif [ "$has_claude" = true ]; then
       PROCESS_AGENT="claude"
     else
-      PROCESS_AGENT="opencode"
+      error "No supported process agent detected. Install OpenCode or Claude Code, or pass --process-agent opencode|claude after provisioning it."
     fi
     return
   fi
@@ -368,17 +368,32 @@ if [ "$SHELL" = "/bin/bash" ] || [ "$PLATFORM" = "gitbash" ]; then
   SHELL_RC="$HOME/.bashrc"
 fi
 
-if ! grep -q "KB_VAULT" "$SHELL_RC" 2>/dev/null; then
+ensure_profile_export() {
+  local name="$1"
+  local value="$2"
+  if grep -q "^export ${name}=" "$SHELL_RC" 2>/dev/null; then
+    log "$name already configured."
+  else
+    echo "export ${name}=\"$value\"" >> "$SHELL_RC"
+    log "$name added to $SHELL_RC"
+  fi
+}
+
+if ! grep -q "# KeyBrain" "$SHELL_RC" 2>/dev/null; then
   echo '' >> "$SHELL_RC"
   echo '# KeyBrain' >> "$SHELL_RC"
-  echo "export KB_VAULT=\"$VAULT_DIR\"" >> "$SHELL_RC"
-  echo "export KB_VENV=\"$VENV_DIR\"" >> "$SHELL_RC"
-  echo "export KB_CHROMADB=\"$CHROMADB_DIR\"" >> "$SHELL_RC"
-  echo "export KB_PROCESS_AGENT=\"$PROCESS_AGENT\"" >> "$SHELL_RC"
+fi
+
+ensure_profile_export "KB_VAULT" "$VAULT_DIR"
+ensure_profile_export "KB_VENV" "$VENV_DIR"
+ensure_profile_export "KB_CHROMADB" "$CHROMADB_DIR"
+ensure_profile_export "KB_PROCESS_AGENT" "$PROCESS_AGENT"
+
+if ! grep -q 'PATH="\$KB_VAULT/bin:\$PATH"' "$SHELL_RC" 2>/dev/null; then
   echo 'export PATH="$KB_VAULT/bin:$PATH"' >> "$SHELL_RC"
-  log "KB_VAULT, KB_VENV, KB_CHROMADB, KB_PROCESS_AGENT, and PATH added to $SHELL_RC"
+  log "KeyBrain bin added to PATH in $SHELL_RC"
 else
-  log "KB_VAULT already configured."
+  log "KeyBrain PATH already configured."
 fi
 
 # ── 10. Claude Code skills ─────────────────────────────────

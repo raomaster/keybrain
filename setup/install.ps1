@@ -92,7 +92,7 @@ if (-not $ProcessAgent) {
     if ($NonInteractive) {
         if ($hasOpenCode) { $ProcessAgent = "opencode" }
         elseif ($hasClaude) { $ProcessAgent = "claude" }
-        else { $ProcessAgent = "opencode" }
+        else { Abort "No supported process agent detected. Install OpenCode or Claude Code, or pass -ProcessAgent opencode|claude after provisioning it." }
     } else {
         Write-Host "Which agent should process KeyBrain inbox files?"
         Write-Host "  1) OpenCode (recommended) — $(if ($hasOpenCode) { 'detected' } else { 'not detected yet' })"
@@ -207,17 +207,25 @@ $profileDir = Split-Path $PROFILE
 New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
 
 $aliasLine = "function kb { & `"$VaultPath\bin\kb.ps1`" @args }"
+function Ensure-ProfileLine {
+    param([string]$Pattern, [string]$Line, [string]$Description)
+    if (-not (Test-Path $PROFILE) -or -not (Select-String -Path $PROFILE -Pattern $Pattern -Quiet)) {
+        Add-Content -Path $PROFILE -Value $Line
+        Log "$Description added to PowerShell profile."
+    } else {
+        Log "$Description already configured."
+    }
+}
+
 if (-not (Test-Path $PROFILE) -or -not (Select-String -Path $PROFILE -Pattern "KeyBrain" -Quiet)) {
     Add-Content -Path $PROFILE -Value "`n# KeyBrain"
-    Add-Content -Path $PROFILE -Value "`$env:KB_VAULT = `"$VaultPath`""
-    Add-Content -Path $PROFILE -Value "`$env:KB_VENV = `"$venvDir`""
-    Add-Content -Path $PROFILE -Value "`$env:KB_CHROMADB = `"$chromadbDir`""
-    Add-Content -Path $PROFILE -Value "`$env:KB_PROCESS_AGENT = `"$ProcessAgent`""
-    Add-Content -Path $PROFILE -Value $aliasLine
-    Log "Alias 'kb', KB_VAULT, KB_VENV, KB_CHROMADB, and KB_PROCESS_AGENT added to PowerShell profile."
-} else {
-    Log "Alias already exists."
 }
+
+Ensure-ProfileLine "KB_VAULT" "`$env:KB_VAULT = `"$VaultPath`"" "KB_VAULT"
+Ensure-ProfileLine "KB_VENV" "`$env:KB_VENV = `"$venvDir`"" "KB_VENV"
+Ensure-ProfileLine "KB_CHROMADB" "`$env:KB_CHROMADB = `"$chromadbDir`"" "KB_CHROMADB"
+Ensure-ProfileLine "KB_PROCESS_AGENT" "`$env:KB_PROCESS_AGENT = `"$ProcessAgent`"" "KB_PROCESS_AGENT"
+Ensure-ProfileLine "function kb" $aliasLine "Alias 'kb'"
 
 # ── 10. Claude Code skills ──────────────────────────────────
 Step "Installing Claude Code skills"
