@@ -145,6 +145,87 @@ CODEXEOF
   fi
 }
 
+install_hermes_skills() {
+  local skills_src="$1"
+  local hermes_skills_dir="$2"
+  mkdir -p "$hermes_skills_dir"
+  if [ -d "$skills_src" ]; then
+    for skill_dir in "$skills_src"/*/; do
+      [ -d "$skill_dir" ] || continue
+      local skill_name
+      skill_name="$(basename "$skill_dir")"
+      local dest="$hermes_skills_dir/$skill_name"
+      mkdir -p "$dest"
+      if [ -f "$skill_dir/SKILL.md" ]; then
+        cp "$skill_dir/SKILL.md" "$dest/SKILL.md"
+        log "Hermes skill installed: $skill_name"
+      fi
+    done
+    return 0
+  else
+    warn "Could not install Hermes skills. Source not found: $skills_src"
+    return 1
+  fi
+}
+
+configure_hermes_soul_md() {
+  local soul_md="$1"
+  mkdir -p "$(dirname "$soul_md")"
+  if ! grep -q "KeyBrain" "$soul_md" 2>/dev/null; then
+    cat >> "$soul_md" << 'HERMESEOF'
+
+## KeyBrain — Persistent Knowledge Base
+
+You have access to KeyBrain, a local-first knowledge vault at `${KB_VAULT:-$HOME/Knowledge}`.
+KeyBrain is your primary memory and research base. Use it before answering technical questions.
+
+### Priority Rules
+
+1. **Always search KeyBrain first.** Before answering any technical question, run:
+   ```
+   kb-search-semantic "user's question keywords" --results 5
+   ```
+2. **KeyBrain is your primary memory.** Save decisions, findings, and important context there.
+   Only use Hermes built-in memory for session-only temporary notes.
+3. **Save valuable knowledge without asking.** When the user shares a decision, preference, or finding:
+   ```
+   kb "Decision: [what] — Why: [reason] — Rejected: [alternatives]"
+   ```
+4. **After plans or significant work:** `kb add /path/to/plan.md`
+
+### Available Commands
+
+| Command | Purpose |
+|---------|---------|
+| `kb-search-semantic "query" --results N` | Semantic search in the vault via ChromaDB |
+| `kb "text or URL"` | Save to inbox for processing |
+| `kb add /path/to/file` | Copy a file (PDF, Word, etc.) to inbox |
+| `kb status` | Check vault status (pending inbox count) |
+| `kb process` | Process all inbox files now |
+| `kb-index --force` | Rebuild ChromaDB vector index |
+| `kb-dream --days 30` | Consolidate episodic memory |
+| `kb update` | Update KeyBrain framework from GitHub |
+
+### Environment
+
+Vault path: `${KB_VAULT:-$HOME/Knowledge}`
+Python venv: `${KB_VENV:-$KB_VAULT/.venv}`
+ChromaDB: `${KB_CHROMADB:-$KB_VAULT/.chromadb}`
+
+### Typical Flow
+
+1. User asks a question → `kb-search-semantic "query" --results 5`
+2. Found relevant context? → Read source files, synthesize answer with citations
+3. User shares something valuable? → `kb "content"` or `kb "Decision: ..."`
+4. After important work? → `kb add /path/to/plan.md`
+5. Periodic maintenance: `kb-index --force` after many changes, `kb-dream` nightly
+HERMESEOF
+    log "Hermes SOUL.md configured with KeyBrain instructions."
+  else
+    log "SOUL.md already has KeyBrain instructions."
+  fi
+}
+
 # Guard: stop execution when sourced (e.g., by tests)
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
 
@@ -467,6 +548,22 @@ configure_jetbrains_ai "$HOME/.aiassistant/rules"
 # ── 11e. Codex AGENTS.md ──────────────────────────────────
 step "Configuring Codex instructions"
 configure_codex_agents_md "$HOME/.codex/AGENTS.md"
+
+# ── 11f. Hermes Agent ─────────────────────────────────────
+step "Installing KeyBrain skills for Hermes"
+HERMES_DETECTED=false
+if [ -d "$HOME/.hermes" ] || command -v hermes &>/dev/null; then
+  HERMES_DETECTED=true
+fi
+if [ "$HERMES_DETECTED" = true ]; then
+  HERMES_SKILLS_SRC="$VAULT_DIR/setup/skills/hermes-keybrain"
+  if [ -d "$HERMES_SKILLS_SRC" ]; then
+    install_hermes_skills "$VAULT_DIR/setup/skills" "$HOME/.hermes/skills/keybrain"
+  fi
+  configure_hermes_soul_md "$HOME/.hermes/SOUL.md"
+else
+  log "Hermes not detected, skipping."
+fi
 
 # ── 12. Claude Code settings.json ──────────────────────────
 step "Configuring automatic permissions for the vault"

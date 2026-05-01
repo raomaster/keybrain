@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-05-01
+### Added
+- Hermes Agent support: `install_hermes_skills()` installs KeyBrain skills to `~/.hermes/skills/keybrain/` with full SKILL.md including semantic search, inbox management, indexing, dreaming, and framework updates.
+- `configure_hermes_soul_md()` injects KeyBrain instructions into `~/.hermes/SOUL.md` idempotently with priority rules, command reference, and typical workflow.
+- Installer detection and prompt for Hermes Agent during setup (step 11f).
+- Unit tests for Hermes installer functions: skill installation, SOUL.md creation/append/skip, parent dir creation, and content verification.
+- Hermes SKILL.md establishes KeyBrain as primary memory source with priority rules: search first, save decisions without asking, fall back to Hermes memory only for session-only context.
+
 ## [0.3.1] - 2026-04-27
 ### Added
 - `KB_PROCESS_AGENT` to select the inbox processing backend (`opencode` by default, `claude` optional).
