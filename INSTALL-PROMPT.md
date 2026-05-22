@@ -20,7 +20,8 @@ Please do the following:
    - Install dependencies (Git, Node.js, Python 3.12, Obsidian, markitdown)
    - Create a Python virtual environment with ChromaDB
    - Set up CLI commands (kb, kb-search-semantic, kb-index)
-   - Install Claude Code skills
+   - Install the universal KeyBrain agent skill with `npx skills` when available
+   - Fall back to copying the skill to known global agent skill directories
    - Configure permissions
 
 4. After installation, please also:

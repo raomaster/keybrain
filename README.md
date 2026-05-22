@@ -79,7 +79,8 @@ You                          AI Agent
  │         ↓                   │
  │  wiki/ + raw/ + decisions/  │
  │         ↓                   │
- │  /kb-search "query"         │
+ │  "search my KB for X"       │
+ │  → keybrain agent skill     │
  │  → ChromaDB (milliseconds)  │
 ```
 
@@ -94,15 +95,16 @@ You                          AI Agent
 | `kb update` | Update KeyBrain framework from GitHub |
 | `kb open` | Open vault in file manager |
 
-### Semantic search (slash commands)
+### Agent skill
 
-| Command | What it does |
-|---------|-------------|
-| `/kb-search "query"` | Search the vault semantically |
-| `/kb-add` | Add content to inbox |
-| `/kb-process` | Process the inbox |
-| `/kb-health` | Audit the vault for issues |
-| `/kb-compile` | Compile/update the wiki |
+KeyBrain installs a universal `keybrain` skill for coding agents. Ask naturally:
+
+| Prompt | What the agent should do |
+|--------|--------------------------|
+| "busca en mi kb X" / "search my KB for X" | Run semantic search and answer with vault context |
+| "guarda esto en KeyBrain" | Save durable content to the inbox |
+| "procesa mi KB" | Run the configured inbox processor |
+| "revisa la salud de mi vault" | Check structure, indexes, and pending inbox files |
 
 ## Supported formats
 
@@ -123,14 +125,20 @@ Via [markitdown](https://github.com/microsoft/markitdown):
 
 ## Supported agents
 
-KeyBrain works with any AI agent via [agentskills.io](https://agentskills.io):
+KeyBrain works with any AI agent via [agentskills.io](https://agentskills.io). The installer tries `npx skills@latest` first; if npm/npx is unavailable, it copies the `keybrain` skill to known global skill paths.
 
 | Agent | Method |
 |-------|--------|
-| Claude Code | Skills via `npx skills@latest` |
-| GitHub Copilot (VS Code) | Skills via agentskills.io |
-| Cursor / Gemini CLI / Codex / Roo Code | Skills via agentskills.io |
+| Claude Code | `~/.claude/skills/keybrain/` |
+| Codex | `~/.codex/skills/keybrain/` and `~/.agents/skills/keybrain/` |
+| OpenCode | `~/.config/opencode/skills/keybrain/` |
+| GitHub Copilot (VS Code) | `~/.copilot/skills/keybrain/` |
+| Cursor / Gemini CLI | `~/.cursor/skills/keybrain/`, `~/.gemini/skills/keybrain/` |
+| Antigravity 2.0 | `~/.gemini/antigravity/skills/keybrain/` |
+| Antigravity CLI | `~/.gemini/antigravity-cli/skills/keybrain/` |
 | Claude.ai Projects | Copy-paste SKILL.md to Project instructions |
+
+Hermes and OpenClaw use dedicated integration paths because their skill and memory models need agent-specific setup.
 
 ## Configuration
 

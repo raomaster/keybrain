@@ -227,15 +227,82 @@ Ensure-ProfileLine "KB_CHROMADB" "`$env:KB_CHROMADB = `"$chromadbDir`"" "KB_CHRO
 Ensure-ProfileLine "KB_PROCESS_AGENT" "`$env:KB_PROCESS_AGENT = `"$ProcessAgent`"" "KB_PROCESS_AGENT"
 Ensure-ProfileLine "function kb" $aliasLine "Alias 'kb'"
 
-# ── 10. Claude Code skills ──────────────────────────────────
-Step "Installing Claude Code skills"
-$commandsDir = "$env:USERPROFILE\.claude\commands"
-New-Item -ItemType Directory -Path $commandsDir -Force | Out-Null
+function Copy-KeyBrainSkill {
+    param([string]$SkillSrc, [string]$TargetParent)
+    $target = Join-Path $TargetParent "keybrain"
+    if (-not (Test-Path (Join-Path $SkillSrc "SKILL.md"))) {
+        Warn "Universal KeyBrain skill not found at $SkillSrc\SKILL.md"
+        return $false
+    }
+    New-Item -ItemType Directory -Path $target -Force | Out-Null
+    Copy-Item "$SkillSrc\*" $target -Recurse -Force
+    Log "KeyBrain skill installed to $target"
+    return $true
+}
 
+function Install-KeyBrainSkillManual {
+    param([string]$SkillsSrc)
+    $skillSrc = Join-Path $SkillsSrc "keybrain"
+    $targets = @(
+        "$env:USERPROFILE\.claude\skills",
+        "$env:USERPROFILE\.codex\skills",
+        "$env:USERPROFILE\.agents\skills",
+        "$env:USERPROFILE\.config\opencode\skills",
+        "$env:USERPROFILE\.copilot\skills",
+        "$env:USERPROFILE\.cursor\skills",
+        "$env:USERPROFILE\.gemini\skills",
+        "$env:USERPROFILE\.gemini\antigravity\skills",
+        "$env:USERPROFILE\.gemini\antigravity-cli\skills"
+    )
+    $ok = $true
+    foreach ($target in $targets) {
+        if (-not (Copy-KeyBrainSkill $skillSrc $target)) {
+            $ok = $false
+        }
+    }
+    return $ok
+}
+
+function Install-KeyBrainSkillWithNpx {
+    param([string]$SkillsSrc)
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue) -or -not (Get-Command npx -ErrorAction SilentlyContinue)) {
+        Warn "npm/npx not available; falling back to manual skill install."
+        return $false
+    }
+    & npx --yes skills@latest add $SkillsSrc `
+        --global `
+        --copy `
+        --yes `
+        --skill keybrain `
+        --agent claude-code `
+        --agent codex `
+        --agent opencode `
+        --agent github-copilot `
+        --agent cursor `
+        --agent gemini-cli `
+        --agent antigravity
+    return $LASTEXITCODE -eq 0
+}
+
+function Install-KeyBrainUniversalSkill {
+    param([string]$SkillsSrc)
+    if (Install-KeyBrainSkillWithNpx $SkillsSrc) {
+        Log "Universal KeyBrain skill installed via npx skills."
+    } else {
+        Warn "npx skills install unavailable or failed; using manual global fallback."
+        if (-not (Install-KeyBrainSkillManual $SkillsSrc)) {
+            Warn "One or more manual skill installs failed."
+        }
+    }
+}
+
+# ── 10. Universal Agent Skill ───────────────────────────────
+Step "Installing universal KeyBrain skill"
 $skillsSrc = "$VaultPath\setup\skills"
 if (Test-Path $skillsSrc) {
-    Copy-Item "$skillsSrc\*" $commandsDir -Force
-    Log "Skills installed to $commandsDir"
+    Install-KeyBrainUniversalSkill $skillsSrc
+} else {
+    Warn "Skills source not found: $skillsSrc"
 }
 
 # ── 11. Claude Code global CLAUDE.md ───────────────────────
@@ -321,6 +388,6 @@ Write-Host "│    kb add <file>      → copy file to inbox              │" -
 Write-Host "│    kb process         → process inbox now               │" -ForegroundColor Green
 Write-Host "│    kb status          → vault status                    │" -ForegroundColor Green
 Write-Host "│                                                          │" -ForegroundColor Green
-Write-Host "│  Slash commands in Claude Code:                         │" -ForegroundColor Green
-Write-Host "│    /kb-add /kb-process /kb-search /kb-health /kb-compile│" -ForegroundColor Green
+Write-Host "│  Agent skill installed:                                 │" -ForegroundColor Green
+Write-Host "│    keybrain → search and save KB context                │" -ForegroundColor Green
 Write-Host "└─────────────────────────────────────────────────────────┘" -ForegroundColor Green

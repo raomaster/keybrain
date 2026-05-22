@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Universal `keybrain` agent skill for natural KB search, durable capture, inbox processing, indexing, and maintenance workflows.
+- Installer support for `npx skills@latest` to install the universal skill globally for Claude Code, Codex, OpenCode, GitHub Copilot, Cursor, Gemini CLI, and Antigravity.
+- Manual global fallback skill installation for Claude Code, Codex, generic `.agents`, OpenCode, Copilot, Cursor, Gemini CLI, Antigravity 2.0, and Antigravity CLI.
+- Unit tests for universal skill manual installation and `npx skills` agent targeting.
+
+### Changed
+- Claude Code now receives the transversal `keybrain` skill instead of KeyBrain being modeled primarily as Claude-only slash commands.
+- Hermes integration moved under `setup/integrations/hermes/` so `setup/skills/` is a clean portable skills source for `npx skills`.
+- OpenClaw and Hermes remain dedicated integrations because their skill/instruction formats are agent-specific.
 
 ## [0.3.2] - 2026-05-01
 ### Added
