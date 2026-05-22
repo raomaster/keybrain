@@ -66,13 +66,26 @@ install_openclaw_skills() {
   local skills_src="$1"
   local openclaw_dir="$2"
   local openclaw_skills_dir="$openclaw_dir/workspace/skills"
+  if [ ! -d "$skills_src" ]; then
+    warn "Could not copy skills to OpenClaw. Source not found: $skills_src"
+    return 1
+  fi
   mkdir -p "$openclaw_skills_dir"
-  if cp -r "$skills_src/"* "$openclaw_skills_dir/"; then
+  local installed=false
+  for skill_dir in "$skills_src"/kb-*/; do
+    [ -d "$skill_dir" ] || continue
+    local skill_name
+    skill_name="$(basename "$skill_dir")"
+    mkdir -p "$openclaw_skills_dir/$skill_name"
+    cp -R "$skill_dir/." "$openclaw_skills_dir/$skill_name/"
+    installed=true
+  done
+  if [ "$installed" = true ]; then
     find "$openclaw_skills_dir" -name "skill.md" -type f -execdir mv {} SKILL.md \;
     log "OpenClaw skills installed to $openclaw_skills_dir"
     return 0
   else
-    warn "Could not copy skills to OpenClaw. Check permissions on $openclaw_skills_dir"
+    warn "Could not copy skills to OpenClaw. No kb-* skills found in $skills_src"
     return 1
   fi
 }
@@ -145,6 +158,73 @@ CODEXEOF
   fi
 }
 
+copy_keybrain_skill() {
+  local skill_src="$1"
+  local target_parent="$2"
+  local target="$target_parent/keybrain"
+  if [ ! -f "$skill_src/SKILL.md" ]; then
+    warn "Universal KeyBrain skill not found at $skill_src/SKILL.md"
+    return 1
+  fi
+  mkdir -p "$target"
+  cp -R "$skill_src/." "$target/"
+  log "KeyBrain skill installed to $target"
+}
+
+install_keybrain_skill_manual() {
+  local skills_src="$1"
+  local skill_src="$skills_src/keybrain"
+  local failed=false
+  copy_keybrain_skill "$skill_src" "$HOME/.claude/skills" || failed=true
+  copy_keybrain_skill "$skill_src" "$HOME/.codex/skills" || failed=true
+  copy_keybrain_skill "$skill_src" "$HOME/.agents/skills" || failed=true
+  copy_keybrain_skill "$skill_src" "$HOME/.config/opencode/skills" || failed=true
+  copy_keybrain_skill "$skill_src" "$HOME/.copilot/skills" || failed=true
+  copy_keybrain_skill "$skill_src" "$HOME/.cursor/skills" || failed=true
+  copy_keybrain_skill "$skill_src" "$HOME/.gemini/skills" || failed=true
+  copy_keybrain_skill "$skill_src" "$HOME/.gemini/antigravity/skills" || failed=true
+  copy_keybrain_skill "$skill_src" "$HOME/.gemini/antigravity-cli/skills" || failed=true
+
+  if [ "$failed" = true ]; then
+    return 1
+  fi
+  return 0
+}
+
+install_keybrain_skill_with_npx() {
+  local skills_src="$1"
+  if ! command -v npm >/dev/null 2>&1 || ! command -v npx >/dev/null 2>&1; then
+    warn "npm/npx not available; falling back to manual skill install."
+    return 1
+  fi
+
+  if npx --yes skills@latest add "$skills_src" \
+    --global \
+    --copy \
+    --yes \
+    --skill keybrain \
+    --agent claude-code \
+    --agent codex \
+    --agent opencode \
+    --agent github-copilot \
+    --agent cursor \
+    --agent gemini-cli \
+    --agent antigravity; then
+    return 0
+  fi
+  return 1
+}
+
+install_keybrain_universal_skill() {
+  local skills_src="$1"
+  if install_keybrain_skill_with_npx "$skills_src"; then
+    log "Universal KeyBrain skill installed via npx skills."
+  else
+    warn "npx skills install unavailable or failed; using manual global fallback."
+    install_keybrain_skill_manual "$skills_src"
+  fi
+}
+
 install_hermes_skills() {
   local skills_src="$1"
   local hermes_skills_dir="$2"
@@ -154,6 +234,7 @@ install_hermes_skills() {
       [ -d "$skill_dir" ] || continue
       local skill_name
       skill_name="$(basename "$skill_dir")"
+      [ "$skill_name" != "hermes-keybrain" ] && continue
       local dest="$hermes_skills_dir/$skill_name"
       mkdir -p "$dest"
       if [ -f "$skill_dir/SKILL.md" ]; then
@@ -477,15 +558,13 @@ else
   log "KeyBrain PATH already configured."
 fi
 
-# ── 10. Claude Code skills ─────────────────────────────────
-step "Installing Claude Code skills"
-COMMANDS_DIR="$HOME/.claude/commands"
-mkdir -p "$COMMANDS_DIR"
-
+# ── 10. Universal Agent Skill ──────────────────────────────
+step "Installing universal KeyBrain skill"
 SKILLS_SRC="$VAULT_DIR/setup/skills"
 if [ -d "$SKILLS_SRC" ]; then
-  cp -r "$SKILLS_SRC/"* "$COMMANDS_DIR/"
-  log "Skills installed to $COMMANDS_DIR"
+  install_keybrain_universal_skill "$SKILLS_SRC"
+else
+  warn "Skills source not found: $SKILLS_SRC"
 fi
 
 # ── 10b. USER.md template ─────────────────────────────────
@@ -556,9 +635,9 @@ if [ -d "$HOME/.hermes" ] || command -v hermes &>/dev/null; then
   HERMES_DETECTED=true
 fi
 if [ "$HERMES_DETECTED" = true ]; then
-  HERMES_SKILLS_SRC="$VAULT_DIR/setup/skills/hermes-keybrain"
+  HERMES_SKILLS_SRC="$VAULT_DIR/setup/integrations/hermes"
   if [ -d "$HERMES_SKILLS_SRC" ]; then
-    install_hermes_skills "$VAULT_DIR/setup/skills" "$HOME/.hermes/skills/keybrain"
+    install_hermes_skills "$HERMES_SKILLS_SRC" "$HOME/.hermes/skills/keybrain"
   fi
   configure_hermes_soul_md "$HOME/.hermes/SOUL.md"
 else
@@ -638,12 +717,9 @@ echo "│    kb process         → process inbox now               │"
 echo "│    kb status          → vault status                    │"
 echo "│    kb update          → update KeyBrain framework       │"
 echo "│                                                          │"
-echo "│  Slash commands in Claude Code:                         │"
-echo "│    /kb-add             → add content                    │"
-echo "│    /kb-process         → process inbox                  │"
-echo "│    /kb-search <query>  → search the vault               │"
-echo "│    /kb-health          → audit the vault                │"
-echo "│    /kb-compile         → compile the wiki               │"
+echo "│  Agent skill installed:                                 │"
+echo "│    keybrain             → search and save KB context    │"
+echo "│    Trigger: \"busca en mi kb\" / \"search my KB\"          │"
 echo "│                                                          │"
 echo "│  Set up auto-processing (copy-paste to your agent):     │"
 echo "│    \"Configure a cron job to run \$KB_VAULT/bin/          │"

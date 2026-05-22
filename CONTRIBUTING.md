@@ -20,10 +20,11 @@ Open an issue with:
 
 ## How to contribute skills
 
-KeyBrain skills live in `setup/skills/`. Each skill is a directory with a `skill.md` file.
+Portable KeyBrain skills live in `setup/skills/`. Agent-specific integrations live under `setup/integrations/<agent>/`.
 
-Requirements for `skill.md`:
-- Must have a YAML frontmatter with `description` field
+Requirements:
+- Portable `SKILL.md` files must have YAML frontmatter with `name` and `description`
+- Legacy `skill.md` command files must have YAML frontmatter with `description`
 - If the description contains `: `, wrap it in double quotes
 - Must include a test section with manual verification steps
 - Must be in English (translations welcome as separate PRs)

@@ -4,24 +4,23 @@ This roadmap tracks planned work for making KeyBrain reliable across coding agen
 
 ## Near Term
 
-### Codex knowledge capture
+### Universal KeyBrain skill
 
-Goal: make Codex able to store durable notes, decisions, and findings in KeyBrain without replacing the existing Claude-based inbox processor.
+Goal: expose KeyBrain as one portable `keybrain` skill across coding agents, so users can ask naturally to search or save to their KB.
 
-Planned work:
+Status:
 
-- Add Codex-specific setup instructions for `~/.codex/AGENTS.md`.
-- Document that Codex should be started with `--add-dir $KB_VAULT` when it needs to search or write the vault.
-- Add a Codex use case for saving decisions with `kb "Decision: ..."`.
-- Add a lightweight install helper that detects `~/.codex/AGENTS.md` and appends KeyBrain instructions idempotently.
-- Keep the existing Claude cron flow unchanged until a Codex processor is explicitly implemented and tested.
+- Universal skill added at `setup/skills/keybrain/SKILL.md`.
+- Installer attempts `npx skills@latest` for Claude Code, Codex, OpenCode, Copilot, Cursor, Gemini CLI, and Antigravity.
+- Manual fallback copies the skill to known global skill paths, including Antigravity 2.0 and Antigravity CLI.
+- Hermes and OpenClaw keep dedicated install paths because their skills/instructions are agent-specific.
 
 Acceptance criteria:
 
-- Codex can save a note to `$KB_VAULT/inbox/` using `kb`.
-- Codex can run `kb-search-semantic` when launched with vault access.
-- The installer can configure Codex without duplicating instructions on repeated runs.
-- Existing Claude, OpenClaw, Copilot, and JetBrains flows keep working.
+- Claude Code can load `keybrain` from a standard skill directory and search KeyBrain when granted vault access.
+- Codex can load `keybrain` from `~/.agents/skills` or `~/.codex/skills` and save/search when launched with vault access.
+- Antigravity 2.0 can load the global `keybrain` skill from `~/.gemini/antigravity/skills`.
+- Existing Hermes, OpenClaw, Copilot, and JetBrains flows keep working.
 
 ### Safer inbox processing
 
@@ -47,14 +46,15 @@ Planned work:
 - Keep Claude as the default processor until Codex parity is proven.
 - Add tests for runner command construction.
 
-### Codex skills package
+### Project-local skill installation
 
-Goal: expose KeyBrain workflows to Codex as first-class reusable skills where supported.
+Goal: optionally install `keybrain` into a repository workspace for teams and Antigravity Projects.
 
 Planned work:
 
-- Create Codex-compatible skills for search, add, process, health, compile, and dream.
-- Reuse existing agentskills.io content where possible.
+- Add `--install-scope global|project|both`.
+- For project scope, install into `.agents/skills/keybrain/`.
+- Keep global as the default because KeyBrain is personal memory across projects.
 - Document sandbox limitations around ChromaDB and vault writes.
 
 ## Later
