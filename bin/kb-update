@@ -11,8 +11,12 @@ REPO="raomaster/keybrain"
 echo "KeyBrain Update"
 echo "  Local version: $LOCAL_VERSION"
 
-# Check latest tag from GitHub
+# Check latest release from GitHub; fall back to latest tag if a release has
+# not been published yet.
 LATEST=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
+if [ -z "$LATEST" ]; then
+  LATEST=$(curl -s "https://api.github.com/repos/$REPO/tags?per_page=1" | grep '"name"' | head -1 | cut -d'"' -f4)
+fi
 
 if [ -z "$LATEST" ]; then
   echo "Error: could not check for updates. Check your internet connection."
