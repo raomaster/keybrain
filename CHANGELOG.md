@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Claude Code now receives the transversal `keybrain` skill instead of KeyBrain being modeled primarily as Claude-only slash commands.
 - Hermes integration moved under `setup/integrations/hermes/` so `setup/skills/` is a clean portable skills source for `npx skills`.
 - OpenClaw and Hermes remain dedicated integrations because their skill/instruction formats are agent-specific.
+- `kb update` now falls back to the latest GitHub tag when no GitHub Release is available yet.
 
 ## [0.3.2] - 2026-05-01
 ### Added

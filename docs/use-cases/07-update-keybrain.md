@@ -8,7 +8,7 @@
    ```bash
    kb update
    ```
-2. The update checks GitHub for the latest release
+2. The update checks GitHub for the latest release, falling back to the latest tag
 3. If an update is available, it shows what will change
 4. Confirm to update
 5. The update only touches framework files:
