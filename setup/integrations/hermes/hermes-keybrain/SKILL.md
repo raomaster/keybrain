@@ -99,6 +99,24 @@ kb-dream --days 30
 # Consolidates episodic memory from memory/YYYY-MM-DD.md files into:
 #   - MEMORY.md (top-level summary)
 #   - raw/memory-derived/ (promoted claims)
+# Deterministic: does not call an LLM or consume model tokens.
+```
+
+### Cron Status And Model Pinning
+
+```bash
+kb cron status
+kb cron print --process-model "provider/model"
+# Verifies/generates process and dream cron entries.
+# Model settings apply to process-inbox.sh only.
+```
+
+### Installation Health
+
+```bash
+kb doctor
+# Non-destructive checks for vault structure, commands, runtime, cron,
+# git remotes, processor agent, and Obsidian filters.
 ```
 
 ### Update KeyBrain Framework
@@ -126,6 +144,7 @@ KeyBrain uses these env vars (auto-configured by installer):
 - `KB_VENV` — Python venv path (default: `$KB_VAULT/.venv`)
 - `KB_CHROMADB` — ChromaDB path (default: `$KB_VAULT/.chromadb`)
 - `KB_PROCESS_AGENT` — Inbox processor (default: `opencode`)
+- `KB_PROCESS_MODEL` — Optional inbox processing model for cron
 
 ## Connections
 

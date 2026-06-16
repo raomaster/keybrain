@@ -16,7 +16,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest chromadb markitdown
       - name: Make scripts executable
-        run: chmod +x bin/kb bin/process-inbox.sh bin/kb-index bin/kb-search-semantic bin/kb-import-chatgpt bin/kb-update setup/test-install.sh
+        run: chmod +x bin/kb bin/process-inbox.sh bin/kb-index bin/kb-search-semantic bin/kb-import-chatgpt bin/kb-update bin/kb-cron bin/kb-doctor setup/test-install.sh
       - name: Run unit tests
         run: python -m pytest tests/unit/ -v
       - name: Run smoke tests

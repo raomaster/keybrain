@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-06-16
+### Added
+- `kb cron status`, `kb cron print`, and `kb cron install` for inspecting and generating process/dream cron entries without changing existing installations by default.
+- `kb doctor` for non-destructive installation diagnostics across vault structure, commands, runtime, processor agent, cron, git remotes, and Obsidian settings.
+- Optional inbox processor model controls: `KB_PROCESS_MODEL`, `KB_PROCESS_VARIANT`, `KB_PROCESS_EFFORT`, and `KB_PROCESS_MAX_BUDGET_USD`.
+- Installer-managed Obsidian ignore filters for framework files (`setup/`, `CLAUDE.md`, `INSTALL-PROMPT.md`) while preserving existing vault settings.
+
+### Changed
+- `process-inbox.sh` now passes configured model options to OpenCode or Claude Code and logs the selected model settings.
+- New installer runs copy framework files without inheriting the source repo's `.git` metadata; existing vault repositories are left untouched.
+
 ## [0.4.0] - 2026-05-23
 ### Added
 - Universal `keybrain` agent skill for natural KB search, durable capture, inbox processing, indexing, and maintenance workflows.

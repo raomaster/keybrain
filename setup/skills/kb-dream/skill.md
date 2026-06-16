@@ -4,6 +4,8 @@ description: "Consolidate episodic memory into MEMORY.md and raw/memory-derived/
 
 Run the dreaming process over the last $ARGUMENTS days (default: 30) of memory files.
 
+`kb-dream` is deterministic and does not call an LLM. Model/cost settings apply to `process-inbox.sh`, not to this command.
+
 **Process:**
 
 1. Run kb-dream:

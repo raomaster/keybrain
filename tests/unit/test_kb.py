@@ -67,3 +67,28 @@ def test_kb_uses_kb_vault_env(tmp_path):
     md_files = list((vault / "inbox").glob("*.md"))
     assert len(md_files) == 1
     assert "hello from custom vault" in md_files[0].read_text()
+
+
+def test_kb_cron_status_delegates_to_kb_cron(tmp_path):
+    vault = tmp_path / "Knowledge"
+    vault.mkdir()
+    (vault / "inbox").mkdir()
+    (vault / "bin").mkdir()
+    (vault / "bin" / "kb-cron").symlink_to(REPO_ROOT / "bin/kb-cron")
+    crontab_file = tmp_path / "crontab"
+    crontab_file.write_text("")
+
+    env = os.environ.copy()
+    env["KB_VAULT"] = str(vault)
+    env["KB_CRONTAB_FILE"] = str(crontab_file)
+    result = subprocess.run(
+        ["bash", str(REPO_ROOT / "bin/kb"), "cron", "status"],
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+        env=env,
+    )
+
+    assert result.returncode == 0
+    assert "KeyBrain cron status" in result.stdout
+    assert "process-inbox: missing" in result.stdout
