@@ -34,6 +34,8 @@ I want to install KeyBrain — persistent memory and research base for my AI cod
 3. The script will ask where to install (default: ~/Knowledge)
 4. After installation, configure auto-processing:
    "Configure a cron job to run $KB_VAULT/bin/process-inbox.sh every 15 minutes."
+   Or generate a model-pinned cron with:
+   kb cron print --process-model "anthropic/claude-sonnet-4-5"
 ```
 
 During installation, KeyBrain detects OpenCode and Claude Code and asks which agent should power `kb process`. OpenCode is the recommended default for corporate environments where Claude is not approved.
@@ -92,6 +94,9 @@ You                          AI Agent
 | `kb add <file>` | Copy file (PDF, Word, Excel, etc.) to inbox |
 | `kb process` | Force inbox processing now |
 | `kb status` | Show pending inbox count + last commit |
+| `kb doctor` | Check installation health without changing files |
+| `kb cron status` | Verify process/dream cron jobs and the configured processing model |
+| `kb cron print` | Generate safe cron entries for process/dream jobs |
 | `kb update` | Update KeyBrain framework from GitHub |
 | `kb open` | Open vault in file manager |
 
@@ -148,6 +153,10 @@ Hermes and OpenClaw use dedicated integration paths because their skill and memo
 | `KB_VENV` | `$KB_VAULT/.venv` | Python virtual environment location |
 | `KB_CHROMADB` | `$KB_VAULT/.chromadb` | ChromaDB index location |
 | `KB_PROCESS_AGENT` | `opencode` | Agent backend for `kb process` (`opencode` or `claude`) |
+| `KB_PROCESS_MODEL` | agent default | Model used by the inbox processing cron |
+| `KB_PROCESS_VARIANT` | unset | OpenCode model variant / reasoning effort |
+| `KB_PROCESS_EFFORT` | unset | Claude Code effort (`low`, `medium`, `high`, `xhigh`, `max`) |
+| `KB_PROCESS_MAX_BUDGET_USD` | unset | Claude Code print-mode spend cap |
 
 ```bash
 # In your shell profile (.zshrc / .bashrc / PowerShell $PROFILE)
@@ -155,8 +164,11 @@ export KB_VAULT="$HOME/Google Drive/My Drive/Knowledge"  # cloud sync
 export KB_VENV="$HOME/.local/share/keybrain/venv"        # optional runtime outside sync
 export KB_CHROMADB="$HOME/.local/share/keybrain/chromadb" # optional index outside sync
 export KB_PROCESS_AGENT="opencode"                       # or "claude"
+export KB_PROCESS_MODEL="anthropic/claude-sonnet-4-5"    # optional cron model pin
 export PATH="$KB_VAULT/bin:$PATH"
 ```
+
+`kb-dream` is deterministic and does not call an LLM, so model settings only apply to `process-inbox.sh`.
 
 ## Personalizing your agent
 

@@ -5,6 +5,8 @@
 #   kb add <file>          → copies file to inbox/
 #   kb process             → force inbox processing now
 #   kb status              → shows pending inbox count + last commit
+#   kb cron                → inspect/generate KeyBrain cron jobs
+#   kb doctor              → check installation health without changing files
 #   kb open                → opens vault in file manager
 #
 # Configuration:
@@ -41,6 +43,16 @@ case "${1:-}" in
     echo "Last commit: $(cd "$VAULT" && git log -1 --format='%ar — %s' 2>/dev/null || echo 'no commits')"
     ;;
 
+  cron)
+    shift
+    "$VAULT/bin/kb-cron" "$@"
+    ;;
+
+  doctor)
+    shift
+    "$VAULT/bin/kb-doctor" "$@"
+    ;;
+
   open)
     if command -v xdg-open &>/dev/null; then
       xdg-open "$VAULT"
@@ -62,6 +74,8 @@ case "${1:-}" in
       echo "  kb add <file>      → copy file to inbox"
       echo "  kb process         → process inbox now"
       echo "  kb status          → vault status"
+      echo "  kb cron status     → inspect process/dream cron jobs"
+      echo "  kb doctor          → check installation health"
       echo "  kb update          → update KeyBrain framework"
       echo "  kb open            → open vault in file manager"
       exit 1

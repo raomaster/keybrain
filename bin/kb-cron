@@ -1,0 +1,237 @@
+#!/usr/bin/env bash
+# kb-cron — Inspect and generate KeyBrain cron entries.
+
+set -euo pipefail
+
+VAULT="${KB_VAULT:-$HOME/Knowledge}"
+ACTION="${1:-status}"
+[ $# -gt 0 ] && shift
+
+PROCESS_SCHEDULE="*/15 * * * *"
+DREAM_SCHEDULE="0 2 * * *"
+PROCESS_AGENT="${KB_PROCESS_AGENT:-opencode}"
+PROCESS_MODEL="${KB_PROCESS_MODEL:-}"
+PROCESS_VARIANT="${KB_PROCESS_VARIANT:-}"
+PROCESS_EFFORT="${KB_PROCESS_EFFORT:-}"
+PROCESS_MAX_BUDGET_USD="${KB_PROCESS_MAX_BUDGET_USD:-}"
+DREAM_DAYS="${KB_DREAM_DAYS:-30}"
+ENABLE_PROCESS=true
+ENABLE_DREAM=true
+FORCE=false
+
+usage() {
+  cat <<'EOF'
+Usage:
+  kb cron status
+  kb cron print [options]
+  kb cron install [options] [--force]
+
+Options:
+  --process-agent opencode|claude
+  --process-model provider/model
+  --process-variant VALUE          OpenCode model variant (optional)
+  --process-effort VALUE           Claude Code effort: low|medium|high|xhigh|max
+  --process-max-budget-usd VALUE   Claude Code print-mode budget cap
+  --process-schedule "*/15 * * * *"
+  --dream-schedule "0 2 * * *"
+  --dream-days 30
+  --no-process
+  --no-dream
+
+Notes:
+  kb-dream is deterministic and does not call an LLM. Model settings apply to
+  process-inbox.sh through KB_PROCESS_MODEL and related variables.
+EOF
+}
+
+quote() {
+  local value="$1"
+  printf "'%s'" "$(printf "%s" "$value" | sed "s/'/'\\\\''/g")"
+}
+
+parse_options() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --process-agent) PROCESS_AGENT="$2"; shift 2 ;;
+      --process-model) PROCESS_MODEL="$2"; shift 2 ;;
+      --process-variant) PROCESS_VARIANT="$2"; shift 2 ;;
+      --process-effort) PROCESS_EFFORT="$2"; shift 2 ;;
+      --process-max-budget-usd) PROCESS_MAX_BUDGET_USD="$2"; shift 2 ;;
+      --process-schedule) PROCESS_SCHEDULE="$2"; shift 2 ;;
+      --dream-schedule) DREAM_SCHEDULE="$2"; shift 2 ;;
+      --dream-days) DREAM_DAYS="$2"; shift 2 ;;
+      --no-process) ENABLE_PROCESS=false; shift ;;
+      --no-dream) ENABLE_DREAM=false; shift ;;
+      --force) FORCE=true; shift ;;
+      -h|--help) usage; exit 0 ;;
+      *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
+    esac
+  done
+}
+
+process_env() {
+  local parts=(
+    "KB_VAULT=$(quote "$VAULT")"
+    "KB_PROCESS_AGENT=$(quote "$PROCESS_AGENT")"
+  )
+  [ -n "$PROCESS_MODEL" ] && parts+=("KB_PROCESS_MODEL=$(quote "$PROCESS_MODEL")")
+  [ -n "$PROCESS_VARIANT" ] && parts+=("KB_PROCESS_VARIANT=$(quote "$PROCESS_VARIANT")")
+  [ -n "$PROCESS_EFFORT" ] && parts+=("KB_PROCESS_EFFORT=$(quote "$PROCESS_EFFORT")")
+  [ -n "$PROCESS_MAX_BUDGET_USD" ] && parts+=("KB_PROCESS_MAX_BUDGET_USD=$(quote "$PROCESS_MAX_BUDGET_USD")")
+  printf "%s " "${parts[@]}"
+}
+
+render_cron() {
+  echo "# BEGIN KEYBRAIN CRON"
+  if [ "$ENABLE_PROCESS" = true ]; then
+    printf "%s %s%s >> %s 2>&1\n" \
+      "$PROCESS_SCHEDULE" \
+      "$(process_env)" \
+      "$(quote "$VAULT/bin/process-inbox.sh")" \
+      "$(quote "$VAULT/logs/cron-process.log")"
+  fi
+  if [ "$ENABLE_DREAM" = true ]; then
+    printf "%s KB_VAULT=%s %s --days %s >> %s 2>&1\n" \
+      "$DREAM_SCHEDULE" \
+      "$(quote "$VAULT")" \
+      "$(quote "$VAULT/bin/kb-dream")" \
+      "$DREAM_DAYS" \
+      "$(quote "$VAULT/logs/cron-dream.log")"
+  fi
+  echo "# END KEYBRAIN CRON"
+}
+
+load_crontab() {
+  if [ -n "${KB_CRONTAB_FILE:-}" ]; then
+    if [ -f "$KB_CRONTAB_FILE" ]; then
+      cat "$KB_CRONTAB_FILE"
+    fi
+    return 0
+  else
+    crontab -l 2>/dev/null || true
+  fi
+}
+
+write_crontab() {
+  local content="$1"
+  if [ -n "${KB_CRONTAB_FILE:-}" ]; then
+    printf "%s\n" "$content" > "$KB_CRONTAB_FILE"
+  else
+    printf "%s\n" "$content" | crontab -
+  fi
+}
+
+extract_var() {
+  local line="$1"
+  local name="$2"
+  local regex="(^|[[:space:]])${name}=('([^']*)'|\"([^\"]*)\"|([^[:space:]]+))"
+  if [[ "$line" =~ $regex ]]; then
+    if [ -n "${BASH_REMATCH[3]:-}" ]; then
+      printf "%s" "${BASH_REMATCH[3]}"
+    elif [ -n "${BASH_REMATCH[4]:-}" ]; then
+      printf "%s" "${BASH_REMATCH[4]}"
+    else
+      printf "%s" "${BASH_REMATCH[5]}"
+    fi
+  fi
+}
+
+first_matching_line() {
+  local text="$1"
+  local pattern="$2"
+  printf "%s\n" "$text" | grep -E "$pattern" | grep -v '^[[:space:]]*#' | head -1 || true
+}
+
+status() {
+  local cron_text process_line dream_line model agent variant effort budget
+  cron_text="$(load_crontab)"
+  process_line="$(first_matching_line "$cron_text" "process-inbox\\.sh")"
+  dream_line="$(first_matching_line "$cron_text" "kb-dream")"
+
+  echo "KeyBrain cron status"
+  echo "  Vault: $VAULT"
+  echo ""
+
+  if [ -n "$process_line" ]; then
+    agent="$(extract_var "$process_line" "KB_PROCESS_AGENT")"
+    model="$(extract_var "$process_line" "KB_PROCESS_MODEL")"
+    variant="$(extract_var "$process_line" "KB_PROCESS_VARIANT")"
+    effort="$(extract_var "$process_line" "KB_PROCESS_EFFORT")"
+    budget="$(extract_var "$process_line" "KB_PROCESS_MAX_BUDGET_USD")"
+    echo "  process-inbox: configured"
+    echo "    line: $process_line"
+    echo "    agent: ${agent:-default/opencode}"
+    echo "    model: ${model:-agent default}"
+    [ -n "$variant" ] && echo "    variant: $variant"
+    [ -n "$effort" ] && echo "    effort: $effort"
+    [ -n "$budget" ] && echo "    max budget: \$$budget"
+  else
+    echo "  process-inbox: missing"
+  fi
+
+  echo ""
+  if [ -n "$dream_line" ]; then
+    echo "  kb-dream: configured"
+    echo "    line: $dream_line"
+    echo "    model: none (deterministic; no LLM call)"
+  else
+    echo "  kb-dream: missing"
+    echo "    model: none (deterministic; no LLM call)"
+  fi
+}
+
+install_cron() {
+  local current block next unmanaged
+  current="$(load_crontab)"
+  block="$(render_cron)"
+
+  if printf "%s\n" "$current" | grep -q '^# BEGIN KEYBRAIN CRON$'; then
+    next="$(
+      printf "%s\n" "$current" | awk -v block="$block" '
+        /^# BEGIN KEYBRAIN CRON$/ { if (!done) { print block; done=1 } skip=1; next }
+        /^# END KEYBRAIN CRON$/ { skip=0; next }
+        !skip { print }
+        END { if (!done) print block }
+      '
+    )"
+  else
+    unmanaged="$(printf "%s\n" "$current" | grep -E 'process-inbox\.sh|kb-dream' | grep -v '^[[:space:]]*#' || true)"
+    if [ -n "$unmanaged" ] && [ "$FORCE" != true ]; then
+      echo "Existing unmanaged KeyBrain cron lines found:" >&2
+      printf "%s\n" "$unmanaged" >&2
+      echo "Run 'kb cron status' to inspect them, or rerun with --force to append a managed block." >&2
+      exit 2
+    fi
+    if [ -n "$current" ]; then
+      next="$(printf "%s\n\n%s\n" "$current" "$block")"
+    else
+      next="$block"
+    fi
+  fi
+
+  write_crontab "$next"
+  echo "KeyBrain cron installed."
+}
+
+case "$ACTION" in
+  status)
+    parse_options "$@"
+    status
+    ;;
+  print)
+    parse_options "$@"
+    render_cron
+    ;;
+  install)
+    parse_options "$@"
+    install_cron
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    echo "Unknown command: $ACTION" >&2
+    usage
+    exit 1
+    ;;
+esac

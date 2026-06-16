@@ -18,7 +18,16 @@
    ```
    "Configure a cron job to run $KB_VAULT/bin/process-inbox.sh every 15 minutes."
    ```
-5. Verify: `kb status` should show "Inbox: 0 pending file(s)"
+5. Check installation health:
+   ```bash
+   kb doctor
+   ```
+6. Verify or generate cron entries:
+   ```bash
+   kb cron status
+   kb cron print --process-model "anthropic/claude-sonnet-4-5"
+   ```
+7. Verify: `kb status` should show "Inbox: 0 pending file(s)"
 
 ## Tips
 - On macOS, install Homebrew first if you don't have it

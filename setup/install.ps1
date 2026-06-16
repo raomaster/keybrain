@@ -138,11 +138,40 @@ if ($scriptDir -ne $VaultPath) {
         Warn "$VaultPath already exists. Not overwriting."
     } else {
         Log "Copying vault to $VaultPath..."
-        Copy-Item -Recurse $scriptDir $VaultPath
+        New-Item -ItemType Directory -Path $VaultPath -Force | Out-Null
+        Get-ChildItem -LiteralPath $scriptDir -Force |
+            Where-Object { $_.Name -notin @(".git", ".pytest_cache", ".DS_Store") } |
+            Copy-Item -Destination $VaultPath -Recurse -Force
     }
 } else {
     Log "Already at the vault."
 }
+
+# ── 8b. Obsidian vault filters ─────────────────────────────
+Step "Configuring Obsidian vault filters"
+$obsidianDir = "$VaultPath\.obsidian"
+$appJsonPath = "$obsidianDir\app.json"
+New-Item -ItemType Directory -Path $obsidianDir -Force | Out-Null
+$ignoreFilters = @("setup/", "CLAUDE.md", "INSTALL-PROMPT.md")
+if (Test-Path $appJsonPath) {
+    try {
+        $appConfig = Get-Content $appJsonPath -Raw | ConvertFrom-Json
+    } catch {
+        $appConfig = [pscustomobject]@{}
+    }
+} else {
+    $appConfig = [pscustomobject]@{}
+}
+if (-not $appConfig.PSObject.Properties["userIgnoreFilters"]) {
+    $appConfig | Add-Member -MemberType NoteProperty -Name userIgnoreFilters -Value @()
+}
+foreach ($filter in $ignoreFilters) {
+    if ($appConfig.userIgnoreFilters -notcontains $filter) {
+        $appConfig.userIgnoreFilters += $filter
+    }
+}
+$appConfig | ConvertTo-Json -Depth 5 | Out-File -FilePath $appJsonPath -Encoding utf8
+Log "Obsidian ignore filters configured."
 
 # ── 9. kb PowerShell command ────────────────────────────────
 Step "Creating kb command for PowerShell"
@@ -186,9 +215,15 @@ switch (`$Command) {
         Push-Location `$VAULT; `$last = git log -1 --format="%ar — %s" 2>`$null; Pop-Location
         Write-Host "Last commit: `$last"
     }
+    "cron" {
+        bash "`$VAULT\bin\kb-cron" @KbArgs
+    }
+    "doctor" {
+        bash "`$VAULT\bin\kb-doctor" @KbArgs
+    }
     "open" { Start-Process explorer.exe `$VAULT }
     default {
-        if (-not `$Command) { Write-Host "Usage: kb <text> | kb add <file> | kb process | kb status"; exit 1 }
+        if (-not `$Command) { Write-Host "Usage: kb <text> | kb add <file> | kb process | kb status | kb cron status | kb doctor"; exit 1 }
         `$content = `$Command
         if (`$ArgText) { `$content += " `$ArgText" }
         `$content | Out-File -FilePath "`$INBOX\`$TIMESTAMP.md" -Encoding utf8
@@ -387,6 +422,8 @@ Write-Host "│    kb `"text or URL`"    → save to inbox                  │"
 Write-Host "│    kb add <file>      → copy file to inbox              │" -ForegroundColor Green
 Write-Host "│    kb process         → process inbox now               │" -ForegroundColor Green
 Write-Host "│    kb status          → vault status                    │" -ForegroundColor Green
+Write-Host "│    kb cron status     → process/dream cron status       │" -ForegroundColor Green
+Write-Host "│    kb doctor          → installation health check       │" -ForegroundColor Green
 Write-Host "│                                                          │" -ForegroundColor Green
 Write-Host "│  Agent skill installed:                                 │" -ForegroundColor Green
 Write-Host "│    keybrain → search and save KB context                │" -ForegroundColor Green

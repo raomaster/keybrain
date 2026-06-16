@@ -1,0 +1,271 @@
+#!/usr/bin/env bash
+# kb-doctor — Non-destructive KeyBrain installation health check.
+
+set -u
+
+VAULT="${KB_VAULT:-$HOME/Knowledge}"
+VENV="${KB_VENV:-$VAULT/.venv}"
+CHROMADB="${KB_CHROMADB:-$VAULT/.chromadb}"
+KB_PROCESS_AGENT="${KB_PROCESS_AGENT:-opencode}"
+STRICT=false
+
+OK_COUNT=0
+WARN_COUNT=0
+FAIL_COUNT=0
+
+usage() {
+  cat <<'EOF'
+Usage:
+  kb doctor [--strict]
+
+Checks the current KeyBrain installation without modifying files, crontab,
+runtime directories, git remotes, or vault content.
+
+Options:
+  --strict   Exit non-zero when warnings are present.
+EOF
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --strict) STRICT=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
+  esac
+done
+
+ok() {
+  OK_COUNT=$((OK_COUNT + 1))
+  echo "[OK]   $*"
+}
+
+warn() {
+  WARN_COUNT=$((WARN_COUNT + 1))
+  echo "[WARN] $*"
+}
+
+fail() {
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+  echo "[FAIL] $*"
+}
+
+check_dir() {
+  local path="$1"
+  local label="$2"
+  if [ -d "$path" ]; then
+    ok "$label exists: $path"
+  else
+    fail "$label missing: $path"
+  fi
+}
+
+check_file() {
+  local path="$1"
+  local label="$2"
+  if [ -f "$path" ]; then
+    ok "$label exists: $path"
+  else
+    fail "$label missing: $path"
+  fi
+}
+
+check_executable() {
+  local path="$1"
+  local label="$2"
+  if [ -x "$path" ]; then
+    ok "$label executable: $path"
+  elif [ -f "$path" ]; then
+    warn "$label exists but is not executable: $path"
+  else
+    fail "$label missing: $path"
+  fi
+}
+
+find_python() {
+  local candidate
+  for candidate in "$VENV/bin/python3" "$VENV/Scripts/python.exe" python3; do
+    if command -v "$candidate" >/dev/null 2>&1 || [ -x "$candidate" ]; then
+      printf "%s" "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+load_crontab() {
+  if [ -n "${KB_CRONTAB_FILE:-}" ]; then
+    [ -f "$KB_CRONTAB_FILE" ] && cat "$KB_CRONTAB_FILE"
+  else
+    crontab -l 2>/dev/null || true
+  fi
+}
+
+check_structure() {
+  echo ""
+  echo "Structure"
+  check_dir "$VAULT" "Vault"
+  check_dir "$VAULT/inbox" "Inbox"
+  check_dir "$VAULT/raw" "Raw content directory"
+  check_dir "$VAULT/wiki" "Wiki directory"
+  check_dir "$VAULT/decisions" "Decisions directory"
+  check_dir "$VAULT/bin" "Command directory"
+  check_dir "$VAULT/templates" "Templates directory"
+  check_file "$VAULT/CLAUDE.md" "Agent instructions"
+  check_file "$VAULT/VERSION" "Version file"
+  check_file "$VAULT/wiki/_index.md" "Wiki index"
+}
+
+check_scripts() {
+  echo ""
+  echo "Commands"
+  check_executable "$VAULT/bin/kb" "kb"
+  check_executable "$VAULT/bin/process-inbox.sh" "process-inbox"
+  check_executable "$VAULT/bin/kb-cron" "kb-cron"
+  check_executable "$VAULT/bin/kb-doctor" "kb-doctor"
+  check_executable "$VAULT/bin/kb-dream" "kb-dream"
+  check_executable "$VAULT/bin/kb-index" "kb-index"
+  check_executable "$VAULT/bin/kb-search-semantic" "kb-search-semantic"
+  check_file "$VAULT/bin/kb-index.py" "kb-index.py"
+  check_file "$VAULT/bin/kb-search-semantic.py" "kb-search-semantic.py"
+}
+
+check_runtime() {
+  local python_bin
+  echo ""
+  echo "Runtime"
+  echo "  KB_VAULT: $VAULT"
+  echo "  KB_VENV: $VENV"
+  echo "  KB_CHROMADB: $CHROMADB"
+
+  if python_bin="$(find_python)"; then
+    ok "Python available: $python_bin"
+    if "$python_bin" -c "import chromadb" >/dev/null 2>&1; then
+      ok "ChromaDB import works"
+    else
+      warn "ChromaDB is not importable with $python_bin; run the installer or pip install -r requirements.txt"
+    fi
+  else
+    fail "No usable Python found in KB_VENV or PATH"
+  fi
+
+  if [ -d "$CHROMADB" ]; then
+    ok "ChromaDB directory exists: $CHROMADB"
+  else
+    warn "ChromaDB directory missing: $CHROMADB; run kb-index after setup"
+  fi
+}
+
+check_agent() {
+  echo ""
+  echo "Inbox Processor"
+  case "$KB_PROCESS_AGENT" in
+    opencode)
+      if command -v "${OPENCODE_BIN:-opencode}" >/dev/null 2>&1; then
+        ok "OpenCode processor available: ${OPENCODE_BIN:-opencode}"
+      elif [ -x "${OPENCODE_BIN:-$HOME/.opencode/bin/opencode}" ]; then
+        ok "OpenCode processor available: ${OPENCODE_BIN:-$HOME/.opencode/bin/opencode}"
+      else
+        warn "KB_PROCESS_AGENT=opencode but opencode was not found"
+      fi
+      ;;
+    claude)
+      if command -v "${CLAUDE_BIN:-claude}" >/dev/null 2>&1; then
+        ok "Claude Code processor available: ${CLAUDE_BIN:-claude}"
+      elif [ -x "${CLAUDE_BIN:-$HOME/.local/bin/claude}" ]; then
+        ok "Claude Code processor available: ${CLAUDE_BIN:-$HOME/.local/bin/claude}"
+      else
+        warn "KB_PROCESS_AGENT=claude but claude was not found"
+      fi
+      ;;
+    *)
+      fail "Unsupported KB_PROCESS_AGENT: $KB_PROCESS_AGENT"
+      ;;
+  esac
+
+  if [ -n "${KB_PROCESS_MODEL:-}" ]; then
+    ok "Inbox processing model pinned: $KB_PROCESS_MODEL"
+  else
+    warn "Inbox processing model not pinned; cron will use the agent default"
+  fi
+}
+
+check_cron() {
+  local cron_text
+  echo ""
+  echo "Cron"
+  cron_text="$(load_crontab)"
+  if printf "%s\n" "$cron_text" | grep -E 'process-inbox\.sh' | grep -v '^[[:space:]]*#' >/dev/null 2>&1; then
+    ok "process-inbox cron found"
+  else
+    warn "process-inbox cron missing; generate one with kb cron print"
+  fi
+
+  if printf "%s\n" "$cron_text" | grep -E 'kb-dream' | grep -v '^[[:space:]]*#' >/dev/null 2>&1; then
+    ok "kb-dream cron found"
+  else
+    warn "kb-dream cron missing; generate one with kb cron print"
+  fi
+}
+
+check_git() {
+  local remotes
+  echo ""
+  echo "Git"
+  if [ ! -d "$VAULT/.git" ]; then
+    warn "Vault is not a git repository; ok if you use cloud backup instead"
+    return
+  fi
+
+  ok "Vault git repository exists"
+  remotes="$(git -C "$VAULT" remote -v 2>/dev/null || true)"
+  if [ -z "$remotes" ]; then
+    warn "Vault git repository has no remotes configured"
+    return
+  fi
+
+  if printf "%s\n" "$remotes" | grep -E 'raomaster/keybrain|github\.com[:/]raomaster/keybrain' >/dev/null 2>&1; then
+    warn "Git remote points at the KeyBrain framework repo; expected for framework checkouts, risky for personal vaults"
+  else
+    ok "Vault git remotes do not look like the framework repo"
+  fi
+}
+
+check_obsidian() {
+  local app_json="$VAULT/.obsidian/app.json"
+  echo ""
+  echo "Obsidian"
+  if [ ! -f "$app_json" ]; then
+    warn "Obsidian app.json not found; installer can create ignore filters during setup"
+    return
+  fi
+
+  if grep -q '"setup/"' "$app_json" && grep -q '"CLAUDE.md"' "$app_json"; then
+    ok "Obsidian ignore filters include framework files"
+  else
+    warn "Obsidian ignore filters may not hide framework files"
+  fi
+}
+
+echo "KeyBrain Doctor"
+echo "  Vault: $VAULT"
+
+check_structure
+check_scripts
+check_runtime
+check_agent
+check_cron
+check_git
+check_obsidian
+
+echo ""
+echo "Summary: $OK_COUNT ok, $WARN_COUNT warning(s), $FAIL_COUNT failure(s)"
+
+if [ "$FAIL_COUNT" -gt 0 ]; then
+  exit 1
+fi
+
+if [ "$STRICT" = true ] && [ "$WARN_COUNT" -gt 0 ]; then
+  exit 2
+fi
+
+exit 0

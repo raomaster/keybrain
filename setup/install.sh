@@ -307,6 +307,66 @@ HERMESEOF
   fi
 }
 
+configure_obsidian_ignores() {
+  local vault_dir="$1"
+  local python_bin="${2:-python3}"
+  local app_json="$vault_dir/.obsidian/app.json"
+  mkdir -p "$(dirname "$app_json")"
+
+  "$python_bin" - "$app_json" << 'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+ignore_filters = [
+    "setup/",
+    "CLAUDE.md",
+    "INSTALL-PROMPT.md",
+]
+
+try:
+    data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+except json.JSONDecodeError:
+    data = {}
+
+filters = data.setdefault("userIgnoreFilters", [])
+for item in ignore_filters:
+    if item not in filters:
+        filters.append(item)
+
+path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+
+  if [ $? -eq 0 ]; then
+    log "Obsidian ignore filters configured."
+  else
+    warn "Could not configure Obsidian ignore filters."
+  fi
+}
+
+copy_framework_to_vault() {
+  local src="$1"
+  local dest="$2"
+  if [ ! -d "$src" ]; then
+    warn "Could not copy vault framework. Source not found: $src"
+    return 1
+  fi
+  mkdir -p "$dest"
+  (
+    cd "$src"
+    tar \
+      --exclude='./.git' \
+      --exclude='./.pytest_cache' \
+      --exclude='./.DS_Store' \
+      -cf - .
+  ) | (
+    cd "$dest"
+    tar -xf -
+  )
+  log "Vault framework copied to $dest"
+}
+
 # Guard: stop execution when sourced (e.g., by tests)
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
 
@@ -501,7 +561,7 @@ if [ "$VAULT_REPO_DIR" != "$VAULT_DIR" ]; then
     warn "$VAULT_DIR already exists. Not overwriting."
   else
     log "Copying vault to $VAULT_DIR..."
-    cp -r "$VAULT_REPO_DIR" "$VAULT_DIR"
+    copy_framework_to_vault "$VAULT_REPO_DIR" "$VAULT_DIR"
   fi
 else
   log "Already at vault: $VAULT_DIR"
@@ -515,11 +575,15 @@ if [ ! -f "$VAULT_DIR/MEMORY.md" ]; then
   printf "# Memory\n_Updated: never — run kb-dream to populate_\n" > "$VAULT_DIR/MEMORY.md"
 fi
 
+# ── 7b. Obsidian vault filters ────────────────────────────
+step "Configuring Obsidian vault filters"
+configure_obsidian_ignores "$VAULT_DIR" "$PYTHON_BIN"
+
 # ── 8. Script permissions ──────────────────────────────────
 step "Execution permissions"
 chmod +x "$VAULT_DIR/bin/kb" "$VAULT_DIR/bin/process-inbox.sh"
 chmod +x "$VAULT_DIR/bin/kb-index" "$VAULT_DIR/bin/kb-search-semantic"
-chmod +x "$VAULT_DIR/bin/kb-import-chatgpt" "$VAULT_DIR/bin/kb-update"
+chmod +x "$VAULT_DIR/bin/kb-import-chatgpt" "$VAULT_DIR/bin/kb-update" "$VAULT_DIR/bin/kb-cron" "$VAULT_DIR/bin/kb-doctor"
 chmod +x "$VAULT_DIR/bin/kb-dream"
 log "Scripts are executable."
 
@@ -715,6 +779,7 @@ echo "│    kb \"text or URL\"    → save to inbox                  │"
 echo "│    kb add <file>      → copy file to inbox              │"
 echo "│    kb process         → process inbox now               │"
 echo "│    kb status          → vault status                    │"
+echo "│    kb doctor          → installation health check       │"
 echo "│    kb update          → update KeyBrain framework       │"
 echo "│                                                          │"
 echo "│  Agent skill installed:                                 │"
@@ -724,6 +789,8 @@ echo "│                                                          │"
 echo "│  Set up auto-processing (copy-paste to your agent):     │"
 echo "│    \"Configure a cron job to run \$KB_VAULT/bin/          │"
 echo "│     process-inbox.sh every 15 minutes.\"                 │"
+echo "│    Or inspect/generate cron with: kb cron status         │"
+echo "│    Example model pin: kb cron print --process-model ... │"
 echo "│                                                          │"
 echo "│  Set up nightly dream (memory consolidation):           │"
 echo "│    \"Configure cron: 0 2 * * * \$KB_VAULT/bin/kb-dream\"  │"

@@ -12,6 +12,8 @@ KeyBrain lives at `${KB_VAULT:-$HOME/Knowledge}` and provides:
 - Durable capture with `kb`
 - Semantic search with `kb-search-semantic`
 - Inbox processing with `kb process`
+- Installation diagnostics with `kb doctor`
+- Cron inspection/generation with `kb cron status` and `kb cron print`
 - Indexing with `kb-index`
 - Memory consolidation with `kb-dream`
 
@@ -71,12 +73,16 @@ Use these only when the user asks:
 ```bash
 kb process
 kb status
+kb doctor
+kb cron status
 kb-index --force
 kb-dream --days 30
 kb update
 ```
 
 Do not process, rewrite, re-index, or update the whole vault unless the user asks.
+
+`kb-dream` is deterministic and does not call an LLM. If the user asks about cron model costs, inspect `kb cron status` and configure `KB_PROCESS_MODEL` for `process-inbox.sh`.
 
 ## Boundaries
 

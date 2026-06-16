@@ -26,10 +26,15 @@ Please do the following:
 
 4. After installation, please also:
    - Configure a cron job to run $KB_VAULT/bin/process-inbox.sh every 15 minutes
+   - Verify the scheduled jobs with: kb cron status
+   - If I want to pin a cheaper or more expensive processing model, generate cron with:
+     kb cron print --process-model "provider/model"
    - Index the vault: kb-index
 
 5. Verify everything works:
    - kb status (should show "Inbox: 0 pending file(s)")
+   - kb doctor (should show installation health checks)
+   - kb cron status (should show process/dream cron status)
    - kb-index (should index the initial content)
 
 That's it! My vault should be ready.
